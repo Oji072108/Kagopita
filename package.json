@@ -1,0 +1,17 @@
+{
+  "name": "kagopita",
+  "version": "1.0.0",
+  "main": "server.js",
+  "engines": {
+    "node": ">=22.5.0"
+  },
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "dotenv": "^18.0.9",
+    "express": "^4.21.2",
+    "nodemailer": "^10.2.1",
+    "qrcodejs": "^1.0.0"
+  }
+}

@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#388e3c">
+  <meta name="referrer" content="no-referrer">
+  <title>カゴピタ - みんなのお買い物リスト</title>
+
+  <link rel="stylesheet" href="/css/style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@400;500;700;900&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/@phosphor-icons/web"></script>
+  <script src="/vendor/qrcode.min.js" defer></script>
+  <script src="/js/app.js" defer></script>
+  <link rel="stylesheet" href="/css/dark-mode.css">
+</head>
+<body>
+  <header class="header">
+    <a class="brand" href="#" onclick="switchTab('list'); return false;">
+      <span class="brand-icon"><i class="ph-bold ph-shopping-cart-simple"></i></span>
+      <span>
+        <strong>カゴピタ</strong>
+        <small>みんなで使えるお買い物リスト</small>
+      </span>
+    </a>
+
+    <div class="header-actions">
+      <button id="shareButton" class="family-badge hidden" type="button" aria-haspopup="dialog">
+        <i class="ph-bold ph-share-network"></i> リストを共有
+      </button>
+    </div>
+  </header>
+
+  <main class="main">
+    <p id="authNotice" class="share-message hidden" role="status" aria-live="polite"></p>
+    <section id="noChannels" class="panel hidden">
+      <h2 id="noChannelsTitle" class="panel-title">共有リストがありません</h2>
+      <p id="noChannelsMessage" class="share-instructions">新しいリストを作成するか、招待コードを入力して参加してください。</p>
+      <button id="noChannelsCreateButton" class="btn btn-primary" type="button">リストを作成・参加</button>
+      <div id="welcomeModeTabs" class="welcome-mode-tabs hidden" role="group" aria-label="利用方法を選択">
+        <button class="welcome-mode-tab" type="button" data-welcome-mode="join" aria-pressed="false">
+          <i class="ph-bold ph-ticket"></i> 招待コード
+        </button>
+        <button class="welcome-mode-tab" type="button" data-welcome-mode="guest" aria-pressed="false">
+          <i class="ph-bold ph-user"></i> ゲスト
+        </button>
+        <button class="welcome-mode-tab" type="button" data-welcome-mode="account" aria-pressed="false">
+          <i class="ph-bold ph-envelope-simple"></i> アカウント
+        </button>
+      </div>
+      <form id="welcomeAccountForm" class="form hidden" novalidate>
+        <label for="welcomeAccountName">自分の表示名</label>
+        <input id="welcomeAccountName" maxlength="30" required autocomplete="nickname" placeholder="例：自分の名前">
+        <button class="btn btn-primary" type="submit">ゲストで始める</button>
+        <p id="welcomeAccountMessage" class="share-message" role="alert"></p>
+      </form>
+      <div id="welcomeAuthActions" class="welcome-auth-actions hidden">
+        <button id="showWelcomeRegister" class="btn btn-secondary" type="button">メールでアカウントを作成</button>
+        <p class="welcome-login-prompt">アカウントをお持ちですか？ <button id="showWelcomeLogin" class="text-button" type="button">ログイン</button></p>
+      </div>
+      <form id="welcomeRegisterForm" class="form hidden" novalidate>
+        <label for="welcomeRegisterName">表示名</label>
+        <input id="welcomeRegisterName" maxlength="30" required autocomplete="nickname" placeholder="例：自分の名前">
+        <label for="welcomeRegisterEmail">メールアドレス</label>
+        <input id="welcomeRegisterEmail" type="email" maxlength="254" required autocomplete="email">
+        <label for="welcomeRegisterPassword">パスワード（8文字以上）</label>
+        <input id="welcomeRegisterPassword" type="password" minlength="8" maxlength="128" required autocomplete="new-password">
+        <button class="btn btn-primary" type="submit">アカウントを作成</button>
+        <p id="welcomeRegisterMessage" class="share-message" role="alert"></p>
+        <p class="welcome-login-prompt">アカウントをお持ちですか？ <button id="welcomeRegisterLogin" class="text-button" type="button">ログイン</button></p>
+      </form>
+      <form id="welcomeVerifyForm" class="form hidden" novalidate>
+        <h3 class="panel-title verification-title">
+          <span class="verification-step">アカウント登録 · 2/2</span>
+          メールアドレスの確認
+        </h3>
+        <p id="welcomeVerifyDescription" class="share-instructions"></p>
+        <label for="welcomeVerifyEmail">メールアドレス</label>
+        <input id="welcomeVerifyEmail" class="verification-email" type="email" maxlength="254" required autocomplete="email" readonly>
+        <label for="welcomeVerifyCode">6桁の確認コード</label>
+        <input id="welcomeVerifyCode" class="verification-code-input" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" required autocomplete="one-time-code" placeholder="000000">
+        <button class="btn btn-primary" type="submit">確認して登録を完了</button>
+        <p id="welcomeVerifyMessage" class="share-message verification-message" role="alert"></p>
+        <button id="resendWelcomeVerification" class="btn btn-secondary" type="button">コードを再送信</button>
+      </form>
+      <form id="welcomeLoginForm" class="form hidden" novalidate>
+        <label for="welcomeLoginEmail">メールアドレス</label>
+        <input id="welcomeLoginEmail" type="email" maxlength="254" required autocomplete="email">
+        <label for="welcomeLoginPassword">パスワード</label>
+        <input id="welcomeLoginPassword" type="password" maxlength="128" required autocomplete="current-password">
+        <button class="btn btn-primary" type="submit">ログイン</button>
+        <p id="welcomeLoginMessage" class="share-message" role="alert"></p>
+        <button id="showPasswordReset" class="text-button" type="button">パスワードをお忘れですか？</button>
+      </form>
+      <form id="passwordResetRequestForm" class="form hidden" novalidate>
+        <label for="passwordResetEmail">メールアドレス</label>
+        <input id="passwordResetEmail" type="email" maxlength="254" required autocomplete="email">
+        <button class="btn btn-primary" type="submit">再設定メールを送信</button>
+        <p id="passwordResetMessage" class="share-message" role="alert"></p>
+        <button id="backToWelcomeLogin" class="text-button" type="button">ログインに戻る</button>
+      </form>
+      <form id="passwordResetCompleteForm" class="form hidden" novalidate>
+        <label for="passwordResetNewPassword">新しいパスワード</label>
+        <input id="passwordResetNewPassword" type="password" minlength="8" maxlength="128" required autocomplete="new-password">
+        <button class="btn btn-primary" type="submit">パスワードを更新</button>
+        <p id="passwordResetCompleteMessage" class="share-message" role="alert"></p>
+      </form>
+      <form id="welcomeJoinForm" class="form hidden" novalidate>
+        <label for="welcomeJoinName">招待先で表示する名前</label>
+        <input id="welcomeJoinName" maxlength="30" required autocomplete="nickname" placeholder="例：お母さん">
+        <label for="welcomeInviteCode">受け取った招待番号（半角英数字8文字）</label>
+        <input id="welcomeInviteCode" maxlength="8" minlength="8" required autocomplete="off" placeholder="招待番号を入力">
+        <button class="btn btn-primary" type="submit">招待番号で参加</button>
+        <p id="welcomeJoinMessage" class="share-message" role="alert"></p>
+      </form>
+    </section>
+
+    <div id="channelViews">
+    <section id="view-list" class="view">
+      <div class="progress-card">
+        <div>
+          <span class="eyebrow">現在の進行状況</span>
+          <h2>買うものリスト</h2>
+          <p>今日のお買い物を管理しましょう。</p>
+        </div>
+        <div class="progress-number">
+          <strong id="progressCount">0/0</strong>
+          <small>チェック完了</small>
+        </div>
+      </div>
+
+      <div id="categoriesContainer" class="categories"></div>
+
+      <div class="actions">
+        <button class="btn btn-primary" onclick="switchTab('add')">
+          <i class="ph-bold ph-plus-circle"></i> 項目を追加する
+        </button>
+        <button id="completeShoppingButton" class="btn btn-accent hidden" onclick="switchTab('complete')">
+          <i class="ph-bold ph-check-circle"></i> 買い物を完了する
+        </button>
+      </div>
+
+      <div class="panel">
+        <h3 class="panel-title">
+          <i class="ph-bold ph-clock-counter-clockwise"></i>
+          履歴
+        </h3>
+        <div id="familyFeedContainer" class="feed"></div>
+      </div>
+    </section>
+
+    <section id="view-add" class="view hidden">
+      <div class="panel channel-switch-panel">
+        <h2 class="panel-title">共有リスト</h2>
+        <p class="share-instructions">参加中のリストを表示したり、切り替えたりできます。</p>
+        <button id="showChannelsButton" class="btn btn-secondary" type="button">
+          <i class="ph-bold ph-users-three"></i> 参加中のリストを見る
+        </button>
+      </div>
+      <div class="panel">
+        <h2 class="panel-title">
+          <i class="ph-bold ph-star"></i>
+          お気に入り
+        </h2>
+        <div id="favoritesContainer" class="feed"></div>
+      </div>
+      <div class="panel">
+        <h2 class="panel-title">新しい項目を追加</h2>
+
+        <form id="addForm" class="form" novalidate>
+          <label for="inputName">商品名</label>
+          <input id="inputName" name="name" required maxlength="100"
+            placeholder="例：トマト、牛乳、洗剤">
+
+          <label id="categoryLabel">売り場・カテゴリ</label>
+          <div id="categoryPicker" class="category-picker">
+            <input id="inputCategory" name="category" type="hidden" value="野菜・果物">
+            <button id="categoryPickerButton" class="category-picker-trigger" type="button"
+              aria-haspopup="listbox" aria-expanded="false" aria-controls="categoryOptions"
+              aria-labelledby="categoryLabel categoryPickerValue">
+              <span id="categoryPickerValue">野菜・果物</span>
+              <i class="ph-bold ph-caret-down" aria-hidden="true"></i>
+            </button>
+            <div id="categoryOptions" class="category-options" role="listbox"
+              aria-labelledby="categoryLabel" hidden>
+              <button class="category-option selected" type="button" role="option"
+                aria-selected="true" tabindex="-1" data-value="野菜・果物">
+                <span>野菜・果物</span><i class="ph-bold ph-check" aria-hidden="true"></i>
+              </button>
+              <button class="category-option" type="button" role="option"
+                aria-selected="false" tabindex="-1" data-value="精肉・鮮魚">
+                <span>精肉・鮮魚</span><i class="ph-bold ph-check" aria-hidden="true"></i>
+              </button>
+              <button class="category-option" type="button" role="option"
+                aria-selected="false" tabindex="-1" data-value="日用品">
+                <span>日用品</span><i class="ph-bold ph-check" aria-hidden="true"></i>
+              </button>
+              <button class="category-option" type="button" role="option"
+                aria-selected="false" tabindex="-1" data-value="お菓子・パン">
+                <span>お菓子・パン</span><i class="ph-bold ph-check" aria-hidden="true"></i>
+              </button>
+            </div>
+          </div>
+
+          <label for="inputQty">数量</label>
+          <input id="inputQty" name="qty" value="1個" maxlength="50">
+
+          <button class="btn btn-primary" type="submit">
+            <i class="ph-bold ph-plus-circle"></i> リストに追加する
+          </button>
+          <p id="formMessage" class="form-message"></p>
+        </form>
+      </div>
+    </section>
+
+    <section id="view-complete" class="view hidden">
+      <div class="complete-card">
+        <div class="basket-icon">🧺</div>
+        <span class="eyebrow">買い物完了</span>
+        <h2>買い忘れなし！</h2>
+        <p>この共有リストとログを削除し、メンバー全員をこのリストから退出させます。他のリストやアカウントには影響しません。</p>
+        <button class="btn btn-primary" onclick="handleResetList()">
+          <i class="ph-bold ph-check-circle"></i> このリストを完了して削除
+        </button>
+        <button class="btn btn-secondary" onclick="switchTab('list')">
+          リストに戻る
+        </button>
+      </div>
+    </section>
+
+    <section id="view-members" class="view hidden">
+      <div class="panel">
+        <h2 class="panel-title">
+          <i class="ph-bold ph-users-three"></i>
+          メンバー
+        </h2>
+        <div id="membersContainer" class="feed"></div>
+      </div>
+    </section>
+    </div>
+  </main>
+
+  <dialog id="shareDialog" class="share-dialog" aria-labelledby="shareTitle">
+    <div class="share-content">
+      <h2 id="shareTitle" class="panel-title">リストを共有</h2>
+      <p class="share-instructions">QRコードを読み取るか、招待リンクをコピーして参加してほしい人に送ってください。</p>
+      <div id="shareQr" class="share-qr" aria-label="アプリを開くQRコード"></div>
+      <label class="share-link-label" for="shareLink">共有リンク</label>
+      <div class="share-link-row">
+        <input id="shareLink" type="url" readonly>
+        <button id="copyShareLink" class="btn btn-primary" type="button">リンクをコピー</button>
+      </div>
+      <p id="shareMessage" class="share-message" role="status" aria-live="polite"></p>
+      <p class="share-security-note">
+        管理者が作成した招待コードは1回だけ使用できます。リンクを家族だけに共有してください。
+      </p>
+      <form id="emailInviteForm" class="email-invite-form" novalidate>
+        <label for="inviteEmail">メールアドレスで招待</label>
+        <div class="share-link-row">
+          <input id="inviteEmail" type="email" autocomplete="email" placeholder="family@example.com" required>
+          <button class="btn btn-primary" type="submit">送信</button>
+        </div>
+        <p id="emailInviteMessage" class="share-message" role="status" aria-live="polite"></p>
+      </form>
+      <button id="closeShareDialog" class="btn btn-secondary" type="button">閉じる</button>
+    </div>
+  </dialog>
+
+  <dialog id="joinDialog" class="share-dialog" aria-labelledby="joinTitle">
+    <div class="share-content">
+      <h2 id="joinTitle" class="panel-title">共有リストに参加</h2>
+      <p class="share-instructions">リストに表示する名前を入力してください。</p>
+      <form id="joinForm" class="form" novalidate>
+        <label for="joinName">名前</label>
+        <input id="joinName" maxlength="30" required autocomplete="nickname" placeholder="例：お母さん">
+        <p id="joinMessage" class="share-message" role="alert"></p>
+        <button class="btn btn-primary" type="submit">参加する</button>
+        <button id="cancelJoin" class="btn btn-secondary" type="button">キャンセル</button>
+      </form>
+    </div>
+  </dialog>
+
+  <dialog id="profileDialog" class="share-dialog" aria-labelledby="profileTitle">
+    <div class="share-content">
+      <div class="dialog-title-row">
+        <h2 id="profileTitle" class="panel-title">表示名を変更</h2>
+        <button id="closeProfileDialog" class="dialog-close" type="button" aria-label="閉じる">×</button>
+      </div>
+      <form id="profileForm" class="form" novalidate>
+        <label for="profileName">表示名</label>
+        <input id="profileName" maxlength="30" required autocomplete="nickname">
+        <label for="profileAvatar">プロフィール画像</label>
+        <div class="avatar-picker">
+          <div id="profileAvatarPreview" class="avatar-picker-preview" aria-hidden="true"><i class="ph-bold ph-camera"></i></div>
+          <div class="avatar-picker-copy"><strong>写真を追加</strong><small>JPG、PNG、WebP / 400KB以内</small></div>
+          <label class="avatar-picker-button" for="profileAvatar">選択</label>
+          <input id="profileAvatar" type="file" accept="image/jpeg,image/png,image/webp">
+        </div>
+        <p id="profileMessage" class="share-message" role="alert"></p>
+        <button id="profileSaveButton" class="btn btn-primary" type="submit" disabled>保存する</button>
+        <button id="leaveGroup" class="btn btn-secondary" type="button">このリストから退出</button>
+      </form>
+      <section class="account-settings" aria-labelledby="accountSettingsTitle">
+        <h3 id="accountSettingsTitle" class="panel-title">アカウント</h3>
+        <p id="accountStatus" class="share-instructions"></p>
+        <p id="accountVerificationMessage" class="share-message verification-message" role="status" aria-live="polite"></p>
+        <form id="credentialsForm" class="form hidden" novalidate>
+          <label for="accountEmail">メールアドレス</label>
+          <input id="accountEmail" type="email" maxlength="254" required autocomplete="email">
+          <label for="accountPassword">パスワード（8文字以上）</label>
+          <input id="accountPassword" type="password" minlength="8" maxlength="128" required autocomplete="new-password">
+          <button class="btn btn-primary" type="submit">アカウントを作成</button>
+          <p id="credentialsMessage" class="share-message" role="alert"></p>
+        </form>
+        <form id="accountVerificationForm" class="form hidden" novalidate>
+          <label for="accountVerificationCode">メールに記載された6桁の確認コード</label>
+          <input id="accountVerificationCode" class="verification-code-input" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" required autocomplete="one-time-code" placeholder="000000">
+          <button class="btn btn-primary" type="submit">メールアドレスを確認</button>
+        </form>
+        <button id="resendAccountVerification" class="btn btn-secondary hidden" type="button">確認メールを再送</button>
+        <button id="toggleChangeEmail" class="btn btn-secondary account-action-toggle" type="button" aria-expanded="false">メールアドレスを変更</button>
+        <form id="changeEmailForm" class="form account-action-form hidden" novalidate>
+          <label for="changeEmail">新しいメールアドレス</label>
+          <input id="changeEmail" type="email" maxlength="254" required autocomplete="email">
+          <label for="changeEmailPassword">現在のパスワード</label>
+          <input id="changeEmailPassword" type="password" maxlength="128" required autocomplete="current-password">
+          <button class="btn btn-secondary" type="submit">メールアドレスを変更</button>
+          <p id="changeEmailMessage" class="share-message" role="alert"></p>
+        </form>
+        <button id="toggleChangePassword" class="btn btn-secondary account-action-toggle" type="button" aria-expanded="false">パスワードを変更</button>
+        <form id="changePasswordForm" class="form account-action-form hidden" novalidate>
+          <label for="currentPassword">現在のパスワード</label>
+          <input id="currentPassword" type="password" maxlength="128" required autocomplete="current-password">
+          <label for="newPassword">新しいパスワード</label>
+          <input id="newPassword" type="password" minlength="8" maxlength="128" required autocomplete="new-password">
+          <button class="btn btn-secondary" type="submit">パスワードを変更</button>
+          <p id="changePasswordMessage" class="share-message" role="alert"></p>
+        </form>
+        <button id="deleteAccountButton" class="btn btn-danger" type="button">アカウントを削除</button>
+        <div class="language-setting">
+          <div class="language-setting-copy">
+            <strong>表示言語</strong>
+            <small>Language</small>
+          </div>
+          <div class="language-menu">
+            <button id="languageSelect" class="language-trigger" type="button" aria-haspopup="listbox" aria-expanded="false">日本語 <i class="ph-bold ph-caret-down"></i></button>
+            <div id="languageOptions" class="language-options hidden" role="listbox" aria-label="表示言語">
+              <button type="button" role="option" data-language="ja">日本語</button>
+              <button type="button" role="option" data-language="en">English</button>
+              <button type="button" role="option" data-language="ko">한국어</button>
+              <button type="button" role="option" data-language="zh">简体中文</button>
+              <button type="button" role="option" data-language="es">Español</button>
+            </div>
+          </div>
+        </div>
+        <button id="logoutButton" class="btn btn-secondary" type="button">ログアウト</button>
+      </section>
+    </div>
+  </dialog>
+
+  <dialog id="deleteAccountDialog" class="share-dialog confirm-dialog" aria-labelledby="deleteAccountTitle">
+    <div class="share-content">
+      <h2 id="deleteAccountTitle" class="panel-title">アカウントを削除しますか？</h2>
+      <p class="share-instructions">この操作は取り消せません。アカウントと関連するデータが削除されます。</p>
+      <p id="deleteAccountMessage" class="share-message" role="alert"></p>
+      <div class="dialog-actions">
+        <button id="cancelDeleteAccount" class="btn btn-secondary" type="button">キャンセル</button>
+        <button id="confirmDeleteAccount" class="btn btn-danger" type="button">アカウントを削除</button>
+      </div>
+    </div>
+  </dialog>
+
+  <dialog id="leaveConfirmDialog" class="share-dialog" aria-labelledby="leaveConfirmTitle">
+    <div class="share-content">
+      <h2 id="leaveConfirmTitle" class="panel-title">リストから退出しますか？</h2>
+      <p class="share-instructions">退出すると、このリストが参加中のリストから削除されます。管理者の場合、残っているメンバーに管理者権限が移ります。</p>
+      <p id="leaveConfirmError" class="share-message" role="alert"></p>
+      <div class="dialog-actions">
+        <button id="cancelLeave" class="btn btn-secondary" type="button">キャンセル</button>
+        <button id="confirmLeave" class="btn btn-danger" type="button">退出する</button>
+      </div>
+    </div>
+  </dialog>
+
+  <dialog id="channelsDialog" class="share-dialog" aria-labelledby="channelsTitle">
+    <div class="share-content">
+      <h2 id="channelsTitle" class="panel-title">共有リスト</h2>
+      <section id="joinedChannelsSection" class="joined-channels hidden">
+        <h3 class="share-link-label">参加中のリスト</h3>
+        <div id="joinedChannelsList" class="joined-channels-list"></div>
+      </section>
+      <form id="createChannelForm" class="form" novalidate>
+        <label for="channelName">新しいリスト名</label>
+        <input id="channelName" maxlength="60" required placeholder="例：週末の買い出し">
+        <button class="btn btn-primary" type="submit">リストを作成</button>
+        <p id="createChannelMessage" class="share-message" role="alert"></p>
+      </form>
+      <form id="joinChannelForm" class="form" novalidate>
+        <label for="channelInvite">招待番号（半角英数字8文字）</label>
+        <input id="channelInvite" maxlength="8" minlength="8" required autocomplete="off" placeholder="招待番号を入力">
+        <button class="btn btn-primary" type="submit">招待番号で参加</button>
+        <p id="joinChannelMessage" class="share-message" role="alert"></p>
+      </form>
+      <button id="closeChannelsDialog" class="btn btn-secondary" type="button">閉じる</button>
+    </div>
+  </dialog>
+
+  <nav class="bottom-nav">
+    <div class="bottom-nav-links without-complete without-account">
+      <button id="nav-list" class="nav-item active" onclick="switchTab('list')">
+        <i class="ph-fill ph-list-checks"></i>
+        <span>リスト</span>
+      </button>
+      <button id="nav-add" class="nav-item" onclick="switchTab('add')">
+        <i class="ph-bold ph-plus-circle"></i>
+        <span>追加・共有</span>
+      </button>
+      <button id="nav-members" class="nav-item" onclick="switchTab('members')">
+        <i class="ph-bold ph-users-three"></i>
+        <span>メンバー</span>
+      </button>
+      <button id="nav-account" class="nav-item hidden" type="button" aria-haspopup="dialog">
+        <i class="ph-bold ph-user-circle"></i>
+        <span>アカウント</span>
+      </button>
+      <button id="nav-complete" class="nav-item hidden" onclick="switchTab('complete')">
+        <i class="ph-bold ph-check-circle"></i>
+        <span>完了</span>
+      </button>
+    </div>
+  </nav>
+  <script src="/js/dark-mode.js"></script>
+</body>
+</html>
