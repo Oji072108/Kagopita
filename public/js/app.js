@@ -1,3 +1,4 @@
+let localizationReady = false;
 let currentTab = 'list';
 let currentUser = null;
 let currentChannelId = null;
@@ -6,9 +7,22 @@ let channels = [];
 let favoritesRequestId = 0;
 
 const $ = id => document.getElementById(id);
+const shoppingLanguage = () => localStorage.getItem('kagopita-language') || 'ja';
+const localItemName = name => KagopitaShoppingLanguage.translate(name, shoppingLanguage());
+// Mark canonical source text explicitly; DOM translation is per viewer only.
+function shoppingName(element, source) {
+  element.dataset.shoppingName = source;
+  element.dataset.i18nIgnore = 'true';
+  element.textContent = localItemName(source);
+  if (element.textContent !== source) element.title = source;
+}
+function shoppingQuantity(element, name, quantity, prefix = '', suffix = '') {
+  Object.assign(element.dataset, {shoppingQuantity: quantity, shoppingItem: name, shoppingPrefix: prefix, shoppingSuffix: suffix, i18nIgnore: 'true'});
+  element.textContent = prefix + KagopitaQuantity.display(name, quantity, shoppingLanguage()) + suffix;
+}
 
 const translations = {
-  ja: { profileTitle: '表示名を変更', accountSettingsTitle: 'アカウント', profileNameLabel: '表示名', profileAvatarLabel: 'プロフィール画像', photoAdd: '写真を追加', photoHint: 'JPG、PNG、WebP / 400KB以内', choose: '選択', close: '閉じる', save: '保存する', leave: 'このリストから退出', logout: 'ログアウト', language: '表示言語', languageSub: 'Language', navList: 'リスト', navAdd: '追加・共有', navMembers: 'メンバー', navAccount: 'アカウント', navComplete: '完了', doneEyebrow: '買い物完了', doneTitle: '買い忘れなし！', doneText: 'この共有リストとログを削除し、メンバー全員をこのリストから退出させます。他のリストやアカウントには影響しません。', doneDelete: 'このリストを完了して削除', doneBack: 'リストに戻る' },
+  ja: { profileTitle: '表示名を変更', accountSettingsTitle: 'アカウント', profileNameLabel: '表示名', profileAvatarLabel: 'プロフィール画像', photoAdd: '写真を追加', photoHint: 'JPG、PNG、WebP / 400KB以内', choose: '選択', close: '閉じる', save: '保存する', leave: 'このリストから退出', logout: 'ログアウト', language: '表示言語', languageSub: 'Language', navList: 'リスト', navAdd: '追加・共有', navMembers: 'メンバー', navAccount: 'アカウント', navComplete: '完了', doneEyebrow: '買い物完了', doneTitle: '買い忘れなし！', doneText: 'この共有リストと履歴を削除し、メンバー全員をこのリストから退出させます。他のリストやアカウントには影響しません。', doneDelete: 'このリストを完了して削除', doneBack: 'リストに戻る' },
   en: { email: 'Email address', password: 'Password (8+ characters)', create: 'Create account', profileTitle: 'Edit profile', accountSettingsTitle: 'Account', profileNameLabel: 'Display name', profileAvatarLabel: 'Profile picture', photoAdd: 'Add a photo', photoHint: 'JPG, PNG, WebP / up to 400KB', choose: 'Choose', close: 'Close', save: 'Save', leave: 'Leave this list', logout: 'Log out', language: 'Display language', languageSub: '言語', navList: 'Lists', navAdd: 'Add · Share', navMembers: 'Members', navAccount: 'Account', navComplete: 'Done', doneEyebrow: 'Shopping complete', doneTitle: 'Nothing forgotten!', doneText: 'This removes the shared list and its activity log and removes every member from it. Other lists and accounts are not affected.', doneDelete: 'Complete and delete this list', doneBack: 'Back to list' },
   ko: { profileTitle: '프로필 편집', accountSettingsTitle: '계정', profileNameLabel: '표시 이름', profileAvatarLabel: '프로필 사진', photoAdd: '사진 추가', photoHint: 'JPG, PNG, WebP / 400KB 이하', choose: '선택', close: '닫기', save: '저장', leave: '이 목록에서 나가기', logout: '로그아웃', email: '이메일 주소', password: '비밀번호 (8자 이상)', create: '계정 만들기', language: '표시 언어', languageSub: 'Language', navList: '목록', navAdd: '추가 · 공유', navMembers: '멤버', navAccount: '계정', navComplete: '완료', doneEyebrow: '쇼핑 완료', doneTitle: '빠뜨린 것이 없어요!', doneText: '공유 목록과 기록을 삭제하고 모든 멤버를 목록에서 내보냅니다. 다른 목록과 계정에는 영향을 주지 않습니다.', doneDelete: '목록 완료 후 삭제', doneBack: '목록으로 돌아가기' },
   zh: { email: '电子邮件地址', password: '密码（至少8个字符）', create: '创建账户', profileTitle: '编辑资料', accountSettingsTitle: '账户', profileNameLabel: '显示名称', profileAvatarLabel: '头像', save: '保存', leave: '退出此清单', logout: '退出登录', language: '显示语言', languageSub: 'Language', navList: '清单', navAdd: '添加 · 分享', navMembers: '成员', navAccount: '账户', navComplete: '完成', doneEyebrow: '购物完成', doneTitle: '没有遗漏！', doneText: '这将删除共享清单和活动记录，并移除所有成员。不会影响其他清单或账户。', doneDelete: '完成并删除清单', doneBack: '返回清单' },
@@ -50,35 +64,32 @@ Object.assign(uiTranslations.en, { 'アカウントをお持ちですか？': 'H
 Object.assign(uiTranslations.ko, { 'アカウントをお持ちですか？': '계정이 있으신가요?', 'ログイン': '로그인' });
 Object.assign(uiTranslations.zh, { 'アカウントをお持ちですか？': '已有账户？', 'ログイン': '登录' });
 Object.assign(uiTranslations.es, { 'アカウントをお持ちですか？': '¿Ya tienes una cuenta?', 'ログイン': 'Iniciar sesión' });
-const originalUiText = new WeakMap();
-const originalUiAttributes = new WeakMap();
+feedTranslations.en.edited = item => `edited “${item}”`;
+feedTranslations.ko.edited = item => `「${item}」을(를) 수정했습니다`;
+feedTranslations.zh.edited = item => `编辑了“${item}”`;
+feedTranslations.es.edited = item => `editó “${item}”`;
+for (const [locale, labels] of Object.entries({
+  en: ['restored', 'made recurring item pending again', 'archived the list', 'unarchived the list'],
+  ko: ['복원했습니다', '반복 상품을 미구매로 되돌렸습니다', '목록을 보관했습니다', '보관을 해제했습니다'],
+  zh: ['恢复了', '将重复商品恢复为未购买', '归档了清单', '取消归档了清单'],
+  es: ['restauró', 'volvió a marcar pendiente el artículo recurrente', 'archivó la lista', 'desarchivó la lista']
+})) {
+  feedTranslations[locale].restored = item => `${labels[0]} “${item}”`;
+  feedTranslations[locale].recurring = item => `${labels[1]} “${item}”`;
+  feedTranslations[locale].archived = labels[2]; feedTranslations[locale].unarchived = labels[3];
+}
+for (const row of window.kagopitaLocaleRows) {
+  ['en','ko','zh','es'].forEach((language, index) => { uiTranslations[language][row[0]] = row[index + 1]; });
+}
 function translatePageText(language) {
-  const dictionary = uiTranslations[language] || {};
-  const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
-  let node;
-  while ((node = walker.nextNode())) {
-    if (!originalUiText.has(node)) originalUiText.set(node, node.nodeValue.trim());
-    const original = originalUiText.get(node);
-    if (!original) continue;
-    node.nodeValue = node.nodeValue.replace(node.nodeValue.trim(), dictionary[original] || original);
-  }
-  document.querySelectorAll('[placeholder], [aria-label], [title]').forEach(element => {
-    if (!originalUiAttributes.has(element)) originalUiAttributes.set(element, {});
-    const originals = originalUiAttributes.get(element);
-    ['placeholder', 'aria-label', 'title'].forEach(attribute => {
-      const value = element.getAttribute(attribute);
-      if (!(attribute in originals)) originals[attribute] = value;
-      const original = originals[attribute];
-      if (original) element.setAttribute(attribute, dictionary[original] || original);
-    });
-  });
+  window.KagopitaI18n.translate(document.body, language, uiTranslations[language] || {});
 }
 function applyLanguage(language) {
   const t = translations[language] || translations.ja;
   translatePageText(language);
   document.documentElement.lang = language;
-  $('profileTitle').textContent = t.profileTitle;
-  $('accountSettingsTitle').textContent = t.accountSettingsTitle;
+  $('profileTitle').textContent = t.accountSettingsTitle;
+  $('accountSettingsTitle').textContent = (uiTranslations[language] || {})['ログイン設定'] || 'ログイン設定';
   document.querySelector('label[for="profileName"]').textContent = t.profileNameLabel;
   document.querySelector('label[for="profileAvatar"]').textContent = t.profileAvatarLabel;
   const emailLabel = document.querySelector('label[for="accountEmail"]');
@@ -90,26 +101,30 @@ function applyLanguage(language) {
   const photoCopy = document.querySelector('.avatar-picker-copy strong');
   const photoHint = document.querySelector('.avatar-picker-copy small');
   const chooseButton = document.querySelector('.avatar-picker-button');
-  if (photoCopy) photoCopy.textContent = t.photoAdd || translations.en.photoAdd;
-  if (photoHint) photoHint.textContent = t.photoHint || translations.en.photoHint;
-  if (chooseButton) chooseButton.textContent = t.choose || translations.en.choose;
+  if (photoCopy) photoCopy.textContent = t.photoAdd || (uiTranslations[language] || {})['写真を追加'] || '写真を追加';
+  if (photoHint) photoHint.textContent = t.photoHint || (uiTranslations[language] || {})['JPG、PNG、WebP / 400KB以内'] || 'JPG、PNG、WebP / 400KB以内';
+  if (chooseButton) chooseButton.textContent = t.choose || (uiTranslations[language] || {})['選択'] || '選択';
   $('closeProfileDialog').setAttribute('aria-label', t.close || translations.en.close);
   $('profileSaveButton').textContent = t.save;
   $('leaveGroup').textContent = t.leave;
   $('logoutButton').textContent = t.logout;
   document.querySelector('.language-setting-copy strong').textContent = t.language;
-  document.querySelector('.language-setting-copy small').textContent = t.languageSub;
+  document.querySelector('.language-setting-copy small').textContent = 'Language';
   const complete = document.querySelector('#view-complete');
   if (complete) {
     complete.querySelector('.eyebrow').textContent = t.doneEyebrow;
     complete.querySelector('h2').textContent = t.doneTitle;
     complete.querySelector('p').textContent = t.doneText;
     complete.querySelectorAll('button')[0].lastChild.textContent = ` ${t.doneDelete}`;
-    complete.querySelectorAll('button')[1].textContent = t.doneBack;
   }
-  const labels = document.querySelectorAll('.bottom-nav-links .nav-item span');
-  [t.navList, t.navAdd, t.navMembers, t.navAccount, t.navComplete].forEach((value, index) => { if (labels[index]) labels[index].textContent = value; });
+  $('nav-list').querySelector('span').textContent = t.navList;
+  $('nav-add').querySelector('span').textContent = (uiTranslations[language] || {})['追加'] || '追加';
   localStorage.setItem('kagopita-language', language);
+  if (localizationReady && shoppingData) {
+    renderShoppingList(shoppingData); renderDeletedItems(shoppingData.deletedItems || []);
+  }
+  if (localizationReady) { renderJoinedChannels(); updateQuantityPreview('input'); updateQuantityPreview('edit'); }
+  if (currentUser) updateAccountStatus(language);
   const trigger = $('languageSelect');
   if (trigger) {
     trigger.childNodes[0].textContent = ({ ja: '日本語', en: 'English', ko: '한국어', zh: '简体中文', es: 'Español' }[language] || '日本語') + ' ';
@@ -196,25 +211,33 @@ function channelUrl(endpoint) {
 }
 
 function updateChannelControls() {
-  $('noChannels').classList.toggle('hidden', !currentUser || channels.length > 0);
-  $('channelViews').classList.toggle('hidden', !currentChannelId);
+  document.querySelector('.bottom-nav').classList.toggle('hidden', !currentUser);
+  $('nav-list').disabled = !currentChannelId;
+  $('nav-add').disabled = !currentChannelId;
+  $('noChannels').classList.toggle('hidden', !currentUser || channels.length > 0 || ['channels', 'account'].includes(currentTab));
+  $('channelViews').classList.toggle('hidden', !currentChannelId || ['channels', 'account'].includes(currentTab));
   $('nav-account').classList.toggle('hidden', !currentUser);
+  $('nav-menu').classList.toggle('hidden', !currentUser);
   $('shareButton').classList.toggle('hidden', currentMemberRole !== 'admin');
   $('completeShoppingButton').classList.toggle('hidden', currentMemberRole !== 'admin');
   $('nav-complete').classList.toggle('hidden', currentMemberRole !== 'admin');
-  document.querySelector('.bottom-nav-links')
-    .classList.toggle('without-complete', currentMemberRole !== 'admin');
-  document.querySelector('.bottom-nav-links')
-    .classList.toggle('without-account', !currentUser);
+  $('menu-share').classList.toggle('hidden', currentMemberRole !== 'admin');
+  renderNavigationShortcuts();
+  renderJoinedChannels();
+  const listName = channels.find(c => c.id === currentChannelId)?.name || 'なし';
+  $('currentListName').textContent = '使用中: ' + listName;
   document.querySelector('.actions').classList.toggle('single-action', currentMemberRole !== 'admin');
   if (currentTab === 'complete' && currentMemberRole !== 'admin') switchTab('list');
 }
 
+let channelSelectionVersion = 0;
 async function refreshChannels(preferredId = currentChannelId) {
+  const version = ++channelSelectionVersion;
   const data = await api('/api/me');
+  if (version !== channelSelectionVersion) return;
   currentUser = data.user;
   channels = data.channels;
-  const selected = channels.find(channel => channel.id === preferredId) || channels[0] || null;
+  const selected = channels.find(channel => channel.id === preferredId && !channel.archivedAt) || channels.find(channel => !channel.archivedAt) || null;
   currentChannelId = selected?.id || null;
   currentMemberRole = selected?.role || null;
   updateChannelControls();
@@ -227,38 +250,147 @@ async function refreshChannels(preferredId = currentChannelId) {
 
 async function selectChannel(channelId) {
   const selected = channels.find(channel => channel.id === channelId);
-  if (!selected) return;
+  if (!selected || selected.archivedAt) return;
+  ++channelSelectionVersion;
   currentChannelId = selected.id;
   currentMemberRole = selected.role;
   currentTab = 'list';
   updateChannelControls();
-  switchTab('list');
-  await loadShoppingList();
+  await switchTab('list');
 }
+
+let shoppingData = null;
+localizationReady = true;
+let shoppingMembers = [];
+let filterChannelId = null;
+let editingItem = null;
+
+function memberOption(member) {
+  const option = new Option(member.username, member.id); option.dataset.i18nIgnore = 'true'; return option;
+}
+function fillAssignees(select, selected = '') {
+  select.replaceChildren(new Option('未割り当て', ''));
+  shoppingMembers.forEach(member => select.add(memberOption(member)));
+  select.value = selected || '';
+}
+
+async function openItemEditor(item, category) {
+  const channelId = currentChannelId;
+  try {
+    const { members } = await api(channelUrl('/members'));
+    if (channelId !== currentChannelId) return;
+    shoppingMembers = members;
+    editingItem = { id: item.id, channelId };
+    $('editName').value = item.name;
+    $('editQty').value = item.qty;
+    updateQuantityPreview('edit');
+    $('editCategory').value = category;
+    editCategoryManual = category !== KagopitaCategory.suggest(item.name);
+    $('editNotes').value = item.notes || '';
+    $('editPrice').value = item.price ?? '';
+    $('editRecurrence').value = item.recurrence || 'none';
+    $('editRecurrence').dispatchEvent(new Event('change', { bubbles: true }));
+    $('editDetails').open = false;
+    fillAssignees($('editAssignee'), item.assignedTo);
+    $('editMessage').textContent = '';
+    $('itemEditDialog').showModal();
+  } catch (error) { alert(error.message); }
+}
+
+$('cancelItemEdit').onclick = () => $('itemEditDialog').close();
+$('itemEditForm').addEventListener('submit', async event => {
+  event.preventDefault();
+  if (!editingItem || editingItem.channelId !== currentChannelId) {
+    $('itemEditDialog').close(); return;
+  }
+  $('saveItemButton').disabled = true;
+  try {
+    await api(channelUrl(`/items/${editingItem.id}`), {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: $('editName').value.trim(), qty: KagopitaQuantity.format($('editName').value, $('editQty').value),
+        category: $('editCategory').value.trim(), assignedTo: $('editAssignee').value || null, ...itemExtras('edit') })
+    });
+    $('itemEditDialog').close();
+    await loadShoppingList();
+  } catch (error) { $('editMessage').textContent = error.message; }
+  finally { $('saveItemButton').disabled = false; }
+});
+['itemSearch', 'categoryFilter', 'assignmentFilter'].forEach(id => {
+  $(id).addEventListener(id === 'itemSearch' ? 'input' : 'change', () => {
+    if (shoppingData) renderShoppingList(shoppingData);
+  });
+});
+
+$('clearFilters').addEventListener('click', () => {
+  $('itemSearch').value = ''; $('categoryFilter').value = ''; $('assignmentFilter').value = '';
+  if (shoppingData) renderShoppingList(shoppingData);
+});
 
 async function loadShoppingList() {
   if (!currentChannelId) return false;
   try {
-    const data = await api(channelUrl('/shopping-list'));
+    const channelId = currentChannelId;
+    const [data, { members }] = await Promise.all([api(channelUrl('/shopping-list')), api(channelUrl('/members'))]);
+    if (channelId !== currentChannelId) return false;
+    if (filterChannelId !== channelId) {
+      $('itemSearch').value = ''; $('categoryFilter').value = ''; $('assignmentFilter').value = '';
+      $('searchDetails').open = false;
+      $('deletedItemsDetails').open = false;
+      filterChannelId = channelId;
+      $('itemEditDialog').close();
+    }
+    shoppingData = data; shoppingMembers = members;
+    fillAssignees($('inputAssignee'), $('inputAssignee').value);
+    const selectedCategory = $('categoryFilter').value;
+    const names = [...new Set([...KagopitaCategory.categories, ...data.categories.map(c => c.name)])];
+    $('categoryFilter').replaceChildren(new Option('すべてのカテゴリ', ''), ...names.map(name => { const option = new Option(name, name); option.dataset.shoppingCategory = name; option.dataset.i18nIgnore = 'true'; return option; }));
+    $('categoryFilter').value = names.includes(selectedCategory) ? selectedCategory : '';
+    $('categorySuggestions').replaceChildren(...names.map(name => { const option = new Option(name, name); option.dataset.shoppingCategory = name; option.dataset.i18nIgnore = 'true'; return option; }));
+    const selectedAssignment = $('assignmentFilter').value;
+    $('assignmentFilter').replaceChildren(new Option('すべての担当者', ''), new Option('自分の担当', 'mine'), new Option('未割り当て', 'unassigned'), ...members.map(memberOption));
+    $('assignmentFilter').value = [...$('assignmentFilter').options].some(o => o.value === selectedAssignment) ? selectedAssignment : '';
+    renderShoppingList(data);
+    renderDeletedItems(data.deletedItems || []);
+    return true;
+  } catch (error) {
+    console.error(error);
+    $('categoriesContainer').textContent = error.message;
+    return false;
+  }
+}
+
+function renderShoppingList(data) {
+    const query = $('itemSearch').value.trim().normalize('NFKC').toLocaleLowerCase('ja');
+    const categoryFilter = $('categoryFilter').value;
+    const assignment = $('assignmentFilter').value;
+    let visibleCount = 0;
     $('progressCount').textContent = `${data.completed}/${data.total}`;
     const container = $('categoriesContainer');
     container.replaceChildren();
 
     data.categories.forEach(category => {
-      if (!category.items.length) return;
+      if (categoryFilter && category.name !== categoryFilter) return;
+      const visibleItems = category.items.filter(item => {
+        const matchesText = `${item.name} ${localItemName(item.name)} ${KagopitaShoppingLanguage.canonical(item.name)} ${category.name} ${localItemName(category.name)} ${(uiTranslations[shoppingLanguage()] || {})[category.name] || ''} ${item.assignedName || ''}`.normalize('NFKC').toLocaleLowerCase('ja').includes(query);
+        const matchesAssignment = !assignment || (assignment === 'unassigned' ? !item.assignedTo : item.assignedTo === (assignment === 'mine' ? currentUser.id : assignment));
+        return matchesText && matchesAssignment;
+      });
+      if (!visibleItems.length) return;
+      visibleCount += visibleItems.length;
       const card = document.createElement('article');
       card.className = 'category-card';
       const title = document.createElement('h3');
       title.className = 'category-title';
       const titleText = document.createElement('span');
-      titleText.textContent = `【${category.name}】`;
+      titleText.textContent = (uiTranslations[shoppingLanguage()] || {})[category.name] || localItemName(category.name);
+      titleText.dataset.i18nIgnore = 'true';
       const count = document.createElement('span');
       count.className = 'category-count';
       count.textContent = `${category.items.filter(item => item.completed).length}/${category.items.length}`;
       title.append(titleText, count);
       card.appendChild(title);
 
-      category.items.forEach(item => {
+      visibleItems.forEach(item => {
         const row = document.createElement('div');
         row.className = 'shopping-item';
         const check = document.createElement('button');
@@ -271,15 +403,39 @@ async function loadShoppingList() {
         info.className = 'item-info';
         const name = document.createElement('p');
         name.className = `item-name ${item.completed ? 'completed' : ''}`;
-        name.textContent = item.name;
+        const itemLabel = document.createElement('span');
+        shoppingName(itemLabel, item.name);
+        name.appendChild(itemLabel);
         const qty = document.createElement('span');
         qty.className = 'item-qty';
-        qty.textContent = ` (${item.qty})`;
+        shoppingQuantity(qty, item.name, item.qty, ' (', ')');
         name.appendChild(qty);
         const added = document.createElement('div');
         added.className = 'item-added';
         added.textContent = `追加: ${item.addedBy}`;
-        info.append(name, added);
+        const assignee = document.createElement('div');
+        assignee.className = 'item-assignee';
+        assignee.textContent = `担当: ${item.assignedName || '未割り当て'}`;
+        const edit = document.createElement('button');
+        edit.type = 'button'; edit.className = 'item-edit-button';
+        edit.innerHTML = '<i class="ph-bold ph-pencil-simple" aria-hidden="true"></i>'; edit.title = '編集'; edit.setAttribute('aria-label', `${item.name}を編集`);
+        edit.onclick = () => openItemEditor(item, category.name);
+        const meta = document.createElement('div');
+        meta.className = 'item-meta';
+        meta.append(assignee, added);
+        info.append(name, meta);
+        if (item.notes) {
+          const note = document.createElement('p'); note.className = 'item-note'; note.textContent = item.notes; note.dataset.i18nIgnore = 'true';
+          info.append(note);
+        }
+        if (item.price != null || (item.recurrence && item.recurrence !== 'none')) {
+          const detail = document.createElement('div'); detail.className = 'item-detail';
+          const repeatLabel = ({daily:'毎日', weekly:'毎週', monthly:'毎月'})[item.recurrence];
+          detail.textContent = [item.price != null ? new Intl.NumberFormat('ja-JP', {style:'currency',currency:'JPY'}).format(item.price) : '',
+            repeatLabel ? '↻ ' + translateFeature(repeatLabel) : '',
+            item.nextDueAt ? translateFeature('次回') + ': ' + new Date(item.nextDueAt).toLocaleDateString() : ''].filter(Boolean).join(' · ');
+          info.append(detail);
+        }
         const favorite = document.createElement('button');
         favorite.className = `favorite-toggle${item.isFavorite ? ' selected' : ''}`;
         favorite.type = 'button';
@@ -294,7 +450,7 @@ async function loadShoppingList() {
         remove.innerHTML = '<i class="ph-bold ph-trash"></i>';
         remove.setAttribute('aria-label', `${item.name}を削除`);
         remove.onclick = () => deleteItem(item.id);
-        row.append(check, info, favorite, remove);
+        row.append(check, info, edit, favorite, remove);
         card.appendChild(row);
       });
       container.appendChild(card);
@@ -303,16 +459,13 @@ async function loadShoppingList() {
     if (!container.children.length) {
       const empty = document.createElement('div');
       empty.className = 'category-card empty-state';
-      empty.textContent = 'リストは空です。商品を追加しましょう！';
+      empty.textContent = data.total ? '条件に合う商品がありません。検索・絞り込みを変更してください。' : 'リストは空です。商品を追加しましょう！';
       container.appendChild(empty);
     }
+    $('filterCount').textContent = `${data.total}件中 ${visibleCount}件を表示`;
+    $('clearFilters').classList.toggle('hidden', !query && !categoryFilter && !assignment);
+    $('filterDetails').classList.toggle('has-filters', Boolean(categoryFilter || assignment));
     renderFamilyFeed(data.familyFeed);
-    return true;
-  } catch (error) {
-    console.error(error);
-    $('categoriesContainer').textContent = error.message;
-    return false;
-  }
 }
 
 async function loadFavorites() {
@@ -339,10 +492,14 @@ async function loadFavorites() {
       details.className = 'favorite-details';
       const name = document.createElement('strong');
       name.className = 'favorite-name';
-      name.textContent = favorite.name;
+      shoppingName(name, favorite.name);
       const meta = document.createElement('span');
       meta.className = 'favorite-meta';
-      meta.textContent = `${favorite.category} · ${favorite.qty}`;
+      const aisle = document.createElement('span');
+      aisle.textContent = (uiTranslations[shoppingLanguage()] || {})[favorite.category] || localItemName(favorite.category);
+      aisle.dataset.i18nIgnore = 'true'; aisle.dataset.shoppingCategory = favorite.category;
+      const quantity = document.createElement('span'); shoppingQuantity(quantity, favorite.name, favorite.qty, ' · ');
+      meta.append(aisle, quantity);
       details.append(name, meta);
 
       const add = document.createElement('button');
@@ -405,18 +562,87 @@ async function toggleFavorite(itemId, isFavorite) {
   }
 }
 
-function renderFamilyFeed(feed) {
+let historyPage = 1;
+const historyPageSize = 10;
+let historyChannelId = null;
+let historyPeopleKey = '';
+function resetHistoryFilters() {
+  $('historySearch').value = '';
+  ['historyAction', 'historyPerson', 'historyPeriod'].forEach(id => { $(id).value = ''; });
+  historyPage = 1;
+}
+['historySearch', 'historyAction', 'historyPerson', 'historyPeriod'].forEach(id => {
+  $(id).addEventListener(id === 'historySearch' ? 'input' : 'change', () => {
+    historyPage = 1;
+    renderFamilyFeed(shoppingData?.familyFeed || []);
+  });
+});
+$('historyClear').addEventListener('click', () => {
+  resetHistoryFilters(); renderFamilyFeed(shoppingData?.familyFeed || []);
+});
+function moveHistoryPage(change) {
+  historyPage += change;
+  renderFamilyFeed(shoppingData?.familyFeed || []);
+  $('historyCount').scrollIntoView({block: 'nearest'});
+}
+$('historyPrevious').addEventListener('click', () => moveHistoryPage(-1));
+$('historyNext').addEventListener('click', () => moveHistoryPage(1));
+function renderFamilyFeed(feed = []) {
+  if (historyChannelId !== currentChannelId) {
+    historyChannelId = currentChannelId; historyPeopleKey = '';
+    resetHistoryFilters(); $('historyDetails').open = false;
+  }
+  const people = [...new Set(feed.map(entry => entry.name))].sort((a,b) => a.localeCompare(b));
+  const peopleKey = JSON.stringify(people);
+  if (historyPeopleKey !== peopleKey) {
+    const selected = $('historyPerson').value;
+    $('historyPerson').replaceChildren(new Option('すべてのメンバー',''), ...people.map(name => {
+      const option = new Option(name,name); option.dataset.i18nIgnore = 'true'; return option;
+    }));
+    $('historyPerson').value = people.includes(selected) ? selected : '';
+    historyPeopleKey = peopleKey;
+  }
+  const query = $('historySearch').value.trim().toLocaleLowerCase();
+  const action = $('historyAction').value;
+  const person = $('historyPerson').value;
+  const period = $('historyPeriod').value;
+  const since = new Date(); since.setHours(0,0,0,0);
+  if (period && period !== 'today') since.setDate(since.getDate() - Number(period) + 1);
+  const itemActions = ['added','edited','completed','uncompleted','deleted','restored','recurring'];
+  const matching = feed.filter(entry =>
+    (!query || `${entry.name} ${entry.item || ''} ${localItemName(entry.item || '')}`.toLocaleLowerCase().includes(query)) &&
+    (!action || (action === 'members' ? !itemActions.includes(entry.action) : entry.action === action)) &&
+    (!person || entry.name === person) && (!period || new Date(entry.createdAt) >= since)
+  ).sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt));
+  const pageCount = Math.max(1, Math.ceil(matching.length / historyPageSize));
+  historyPage = Math.max(1, Math.min(historyPage, pageCount));
+  const start = (historyPage - 1) * historyPageSize;
+  const language = localStorage.getItem('kagopita-language') || 'ja';
+  const from = matching.length ? start + 1 : 0, to = Math.min(start + historyPageSize, matching.length);
+  $('historyCount').textContent = ({
+    ja: `${matching.length}件中 ${from}–${to}件を表示（新しい順）`,
+    en: `${from}–${to} of ${matching.length} entries · Newest first`,
+    ko: `${matching.length}개 중 ${from}–${to}개 · 최신순`,
+    zh: `显示 ${from}–${to} / ${matching.length} 条 · 最新优先`,
+    es: `${from}–${to} de ${matching.length} registros · Más recientes primero`
+  })[language] || `${from}–${to} / ${matching.length}`;
+  $('historyPage').textContent = `${historyPage} / ${pageCount}`;
+  $('historyPrevious').disabled = historyPage === 1;
+  $('historyNext').disabled = historyPage === pageCount;
+  $('historyPagination').hidden = pageCount <= 1;
+  $('historyClear').classList.toggle('hidden', !query && !action && !person && !period);
   const container = $('familyFeedContainer');
   container.replaceChildren();
-  if (!feed.length) {
+  if (!matching.length) {
     const empty = document.createElement('p');
     empty.className = 'share-instructions';
     const language = localStorage.getItem('kagopita-language') || 'ja';
-    empty.textContent = ({ en: 'Changes to members and the list will appear here.', ko: '멤버와 목록의 변경 사항이 여기에 표시됩니다.', zh: '成员和清单的变更会显示在这里。', es: 'Los cambios de miembros y de la lista aparecerán aquí.' }[language] || '参加者やリストの変更内容がここに表示されます。');
+    if (feed.length) empty.textContent = ({ja:'条件に合う履歴がありません。',en:'No matching history.',ko:'일치하는 기록이 없습니다.',zh:'没有符合条件的记录。',es:'No hay registros coincidentes.'})[language];
+    else empty.textContent = ({ en: 'Changes to members and the list will appear here.', ko: '멤버와 목록의 변경 사항이 여기에 표시됩니다.', zh: '成员和清单的变更会显示在这里。', es: 'Los cambios de miembros y de la lista aparecerán aquí.' }[language] || '参加者やリストの変更内容がここに表示されます。');
     container.appendChild(empty);
     return;
   }
-  feed.forEach(entry => {
+  matching.slice(start, start + historyPageSize).forEach(entry => {
     const row = document.createElement('div');
     row.className = 'feed-item';
     const avatar = document.createElement('div');
@@ -428,9 +654,13 @@ function renderFamilyFeed(feed) {
       created: 'リストを作成しました',
       joined: '共有リストに参加しました',
       added: `「${entry.item}」を追加しました`,
+      edited: `「${entry.item}」を編集しました`,
       completed: `「${entry.item}」を完了にしました`,
       uncompleted: `「${entry.item}」を未完了に戻しました`,
       deleted: `「${entry.item}」を削除しました`,
+      restored: `「${entry.item}」を復元しました`,
+      recurring: `「${entry.item}」を繰り返しで未購入に戻しました`,
+      archived: 'リストをアーカイブしました', unarchived: 'アーカイブを解除しました',
       kicked: `「${entry.item}」をリストから退出させました`,
       left: `「${entry.item}」から退出しました`,
       renamed: `名前を変更しました (${entry.item})`
@@ -438,13 +668,13 @@ function renderFamilyFeed(feed) {
     const language = localStorage.getItem('kagopita-language') || 'ja';
     const localizedActions = feedTranslations[language];
     const actionText = localizedActions
-      ? (typeof localizedActions[entry.action] === 'function' ? localizedActions[entry.action](entry.item) : localizedActions[entry.action])
+      ? (typeof localizedActions[entry.action] === 'function' ? localizedActions[entry.action](['added','edited','completed','uncompleted','deleted','restored','recurring'].includes(entry.action) ? localItemName(entry.item) : entry.item) : localizedActions[entry.action])
       : (actions[entry.action] || 'リストを更新しました');
     const description = document.createElement('div');
-    description.textContent = `${entry.name}${language === 'ja' ? '：' : ': '}${actionText}`;
+    description.textContent = `${entry.name}${language === 'ja' ? '：' : ': '}${actionText || localizedActions?.updated || actions[entry.action] || 'リストを更新しました'}`;
     const time = document.createElement('span');
     time.className = 'feed-time';
-    time.textContent = new Date(entry.createdAt).toLocaleString();
+    time.textContent = new Date(entry.createdAt).toLocaleString(language);
     content.append(description, time);
     row.append(avatar, content);
     container.appendChild(row);
@@ -472,7 +702,43 @@ async function deleteItem(id) {
 const categoryPicker = $('categoryPicker');
 const categoryPickerButton = $('categoryPickerButton');
 const categoryOptions = $('categoryOptions');
+// Reuse the compact picker; canonical values are independent of UI language.
+KagopitaCategory.categories.forEach(category => {
+  if ([...categoryOptions.children].some(option => option.dataset.value === category)) return;
+  const option = document.createElement('button');
+  option.type = 'button'; option.className = 'category-option';
+  option.setAttribute('role', 'option'); option.setAttribute('aria-selected', 'false');
+  option.tabIndex = -1; option.dataset.value = category;
+  const label = document.createElement('span'); label.textContent = category;
+  option.append(label); categoryOptions.append(option);
+});
 const categoryOptionButtons = [...categoryOptions.querySelectorAll('[role="option"]')];
+let addCategoryManual = false;
+let editCategoryManual = false;
+function setAddCategory(category) {
+  $('inputCategory').value = category;
+  $('categoryPickerValue').textContent = category;
+  categoryOptionButtons.forEach(button => {
+    const selected = button.dataset.value === category;
+    button.classList.toggle('selected', selected);
+    button.setAttribute('aria-selected', String(selected));
+  });
+  const language = document.documentElement.lang || 'ja';
+  window.KagopitaI18n.translate($('categoryPickerValue'), language, uiTranslations[language] || {});
+}
+function suggestAddCategory() {
+  const name = $('inputName').value.trim();
+  if (!name) addCategoryManual = false;
+  if (!addCategoryManual && !$('customCategory').value.trim()) {
+    setAddCategory(KagopitaCategory.suggest(name) || 'その他');
+  }
+}
+$('inputName').addEventListener('input', suggestAddCategory);
+$('customCategory').addEventListener('input', suggestAddCategory);
+$('editCategory').addEventListener('input', () => { editCategoryManual = true; });
+$('editName').addEventListener('input', () => {
+  if (!editCategoryManual) $('editCategory').value = KagopitaCategory.suggest($('editName').value) || 'その他';
+});
 
 function closeCategoryPicker(restoreFocus = false) {
   categoryOptions.hidden = true;
@@ -481,13 +747,8 @@ function closeCategoryPicker(restoreFocus = false) {
 }
 
 function selectCategory(option) {
-  $('inputCategory').value = option.dataset.value;
-  $('categoryPickerValue').textContent = option.querySelector('span').textContent;
-  categoryOptionButtons.forEach(button => {
-    const selected = button === option;
-    button.classList.toggle('selected', selected);
-    button.setAttribute('aria-selected', String(selected));
-  });
+  addCategoryManual = true;
+  setAddCategory(option.dataset.value);
   closeCategoryPicker(true);
 }
 
@@ -534,11 +795,21 @@ document.addEventListener('click', event => {
   if (!categoryPicker.contains(event.target)) closeCategoryPicker();
 });
 
+function updateQuantityPreview(prefix) {
+  const name = $(prefix + 'Name').value;
+  const quantity = $(prefix + 'Qty').value;
+  shoppingQuantity($(prefix + 'QtyPreview'), name, KagopitaQuantity.format(name, quantity), '→ ');
+}
+['input', 'edit'].forEach(prefix => {
+  [prefix + 'Name', prefix + 'Qty'].forEach(id => $(id).addEventListener('input', () => updateQuantityPreview(prefix)));
+  updateQuantityPreview(prefix);
+});
+
 $('addForm').addEventListener('submit', async event => {
   event.preventDefault();
   const name = $('inputName').value.trim();
-  const category = $('inputCategory').value;
-  const qty = $('inputQty').value.trim();
+  const category = $('customCategory').value.trim() || $('inputCategory').value;
+  const qty = KagopitaQuantity.format(name, $('inputQty').value);
   const message = $('formMessage');
   if (!name) {
     message.textContent = '商品名を入力してください。';
@@ -548,10 +819,16 @@ $('addForm').addEventListener('submit', async event => {
     await api(channelUrl('/items'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, category, qty })
+      body: JSON.stringify({ name, category, qty, assignedTo: $('inputAssignee').value || null, ...itemExtras('input') })
     });
     $('inputName').value = '';
-    $('inputQty').value = '1個';
+    $('customCategory').value = '';
+    addCategoryManual = false;
+    suggestAddCategory();
+    $('inputQty').value = '1';
+    $('inputNotes').value = ''; $('inputPrice').value = ''; $('inputRecurrence').value = 'none';
+    $('inputRecurrence').dispatchEvent(new Event('change', {bubbles:true})); $('inputDetails').open = false;
+    updateQuantityPreview('input');
     message.textContent = '商品を追加しました。';
     await loadShoppingList();
     switchTab('list');
@@ -561,7 +838,7 @@ $('addForm').addEventListener('submit', async event => {
 });
 
 async function handleResetList() {
-  if (!confirm('買い物を完了すると、このリストとログが削除され、メンバー全員がこのリストから退出します。よろしいですか？')) return;
+  if (!confirm('買い物を完了すると、このリストと履歴が削除され、メンバー全員がこのリストから退出します。よろしいですか？')) return;
   try {
     await api(channelUrl('/complete'), { method: 'POST' });
     await refreshChannels(null);
@@ -571,12 +848,23 @@ async function handleResetList() {
 }
 
 async function switchTab(tab) {
+  if (!['list', 'add', 'members', 'complete', 'channels', 'account'].includes(tab)) return;
   if (tab === 'complete' && currentMemberRole !== 'admin') return;
+  if (!currentUser) return;
+  if (!currentChannelId && ['list', 'add', 'members', 'complete'].includes(tab)) return switchTab('channels');
+  const previousTab = currentTab;
+  closeNavigationMenu();
   currentTab = tab;
-  ['list', 'add', 'members', 'complete'].forEach(name => {
+  window.scrollTo({top: 0, behavior: 'instant'});
+  $('channelViews').classList.toggle('hidden', !currentChannelId || ['channels', 'account'].includes(tab));
+  $('noChannels').classList.toggle('hidden', !currentUser || channels.length > 0 || ['channels', 'account'].includes(tab));
+  ['list', 'add', 'members', 'complete', 'channels', 'account'].forEach(name => {
     $(`view-${name}`).classList.toggle('hidden', name !== tab);
     const nav = $(`nav-${name}`);
+    if (!nav) return;
     nav.classList.toggle('active', name === tab);
+    if (name === tab) nav.setAttribute('aria-current', 'page');
+    else nav.removeAttribute('aria-current');
     const icon = nav.querySelector('i');
     if (icon) {
       icon.className = name === tab
@@ -584,6 +872,10 @@ async function switchTab(tab) {
         : icon.className.replace('ph-fill', 'ph-bold');
     }
   });
+  renderNavigationShortcuts();
+  syncNavigationMenu();
+  if (tab === 'account' && previousTab !== 'account') prepareAccountTab();
+  if (tab === 'channels') { renderJoinedChannels(); $('createChannelMessage').textContent = ''; $('joinChannelMessage').textContent = ''; }
   const pending = [];
   if (tab === 'list' || tab === 'add') pending.push(loadShoppingList());
   if (tab === 'add') pending.push(loadFavorites());
@@ -609,7 +901,7 @@ $('shareButton').addEventListener('click', async () => {
       text: shareUrl,
       width: 220,
       height: 220,
-      colorDark: '#26332a',
+      colorDark: '#000000',
       colorLight: '#ffffff',
       correctLevel: QRCode.CorrectLevel.M
     });
@@ -711,7 +1003,7 @@ async function loadMembers() {
     const avatar = avatarElement(member);
     const content = document.createElement('div');
     content.className = 'feed-content';
-    content.textContent = member.username;
+    const memberName = document.createElement('span'); memberName.className = 'member-name'; memberName.textContent = member.username; content.appendChild(memberName);
     const role = document.createElement('span');
     role.className = 'member-role';
     role.textContent = member.role === 'admin' ? '管理者' : '参加者';
@@ -737,7 +1029,22 @@ async function loadMembers() {
   });
 }
 
-$('nav-account').addEventListener('click', async () => {
+function updateAccountStatus(language) {
+  if (!currentUser) return;
+  const labels = {ja: ['確認済み','未確認'], en: ['verified','unverified'], ko: ['확인됨','미확인'], zh: ['已验证','未验证'], es: ['verificado','sin verificar']};
+  const hints = {
+    ja: 'メールアドレスとパスワードを設定すると、別の端末からログインできます。',
+    en: 'Set an email and password to sign in from another device.',
+    ko: '이메일과 비밀번호를 설정하면 다른 기기에서 로그인할 수 있습니다.',
+    zh: '设置邮箱和密码后即可从其他设备登录。',
+    es: 'Configura un correo y una contraseña para iniciar sesión desde otro dispositivo.'
+  };
+  const status = (labels[language] || labels.ja)[currentUser.emailVerified ? 0 : 1];
+  $('accountStatus').textContent = currentUser.email ? `${currentUser.email} (${status})` : hints[language] || hints.ja;
+}
+function prepareAccountTab() {
+  if (!currentUser) return;
+  closeNavigationMenu();
   $('profileName').value = currentUser.username;
   profileInitialName = currentUser.username;
   profileInitialAvatar = currentUser.avatar || null;
@@ -763,9 +1070,7 @@ $('nav-account').addEventListener('click', async () => {
   $('credentialsMessage').textContent = '';
   $('accountVerificationMessage').textContent = '';
   const hasEmail = Boolean(currentUser.email);
-  $('accountStatus').textContent = hasEmail
-    ? `${currentUser.email}（${currentUser.emailVerified ? '確認済み' : '未確認'}）`
-    : ({ en: 'Set an email and password to sign in from another device.', ko: '이메일과 비밀번호를 설정하면 다른 기기에서 로그인할 수 있습니다.', zh: '设置邮箱和密码后即可从其他设备登录。', es: 'Configura un correo y una contraseña para iniciar sesión desde otro dispositivo.' }[localStorage.getItem('kagopita-language')] || 'メールアドレスとパスワードを設定すると、別の端末からログインできます。');
+  updateAccountStatus(localStorage.getItem('kagopita-language') || 'ja');
   $('credentialsForm').classList.toggle('hidden', hasEmail);
   $('changeEmailForm').classList.add('hidden');
   $('changePasswordForm').classList.add('hidden');
@@ -776,8 +1081,8 @@ $('nav-account').addEventListener('click', async () => {
   $('deleteAccountButton').classList.toggle('hidden', !hasEmail || !currentUser.emailVerified);
   $('accountVerificationForm').classList.toggle('hidden', !hasEmail || currentUser.emailVerified);
   $('resendAccountVerification').classList.toggle('hidden', !hasEmail || currentUser.emailVerified);
-  profileDialog.showModal();
-});
+}
+$('nav-account').addEventListener('click', () => switchTab('account'));
 $('languageSelect').addEventListener('click', () => {
   const options = $('languageOptions');
   const open = options.classList.toggle('hidden');
@@ -809,7 +1114,7 @@ $('profileForm').addEventListener('submit', async event => {
     });
     currentUser.username = username;
     currentUser.avatar = savedAvatar;
-    profileDialog.close();
+    switchTab('list');
     await loadShoppingList();
   } catch (error) {
     message.textContent = error.message;
@@ -994,10 +1299,8 @@ $('logoutButton').addEventListener('click', async event => {
   }
 });
 
-profileDialog.addEventListener('click', event => {
-  if (event.target === profileDialog) profileDialog.close();
-});
-$('closeProfileDialog').addEventListener('click', () => profileDialog.close());
+
+$('closeProfileDialog').addEventListener('click', () => switchTab('list'));
 $('leaveGroup').addEventListener('click', () => {
   $('leaveConfirmError').textContent = '';
   $('leaveConfirmDialog').showModal();
@@ -1009,7 +1312,7 @@ $('confirmLeave').addEventListener('click', async event => {
   try {
     await api(channelUrl('/membership'), { method: 'DELETE' });
     $('leaveConfirmDialog').close();
-    profileDialog.close();
+    switchTab('list');
     await refreshChannels(null);
   } catch (error) {
     $('leaveConfirmError').textContent = error.message;
@@ -1019,44 +1322,153 @@ $('confirmLeave').addEventListener('click', async event => {
 });
 
 const channelsDialog = $('channelsDialog');
+function translateFeature(text) { return (uiTranslations[document.documentElement.lang] || {})[text] || text; }
+function itemExtras(prefix) {
+  return { notes: $(prefix + 'Notes').value.trim(), price: $(prefix + 'Price').value === '' ? null : Number($(prefix + 'Price').value), recurrence: $(prefix + 'Recurrence').value };
+}
+function renderDeletedItems(items) {
+  const container = $('deletedItemsList'); container.replaceChildren();
+  if (!items.length) { const empty=document.createElement('p'); empty.textContent=translateFeature('削除した商品はありません。'); container.append(empty); }
+  for (const item of items) {
+    const row=document.createElement('div'); row.className='deleted-item-row';
+    const name=document.createElement('span'); const label=document.createElement('span'); shoppingName(label,item.name); const quantity=document.createElement('span'); shoppingQuantity(quantity,item.name,item.qty,' (',')'); name.append(label,quantity);
+    const restore=document.createElement('button'); restore.type='button'; restore.className='text-button'; restore.textContent=translateFeature('復元');
+    restore.setAttribute('aria-label', `${item.name}: ${translateFeature('復元')}`);
+    restore.onclick=async()=>{restore.disabled=true; try {await api(channelUrl(`/items/${item.id}/restore`),{method:'POST'});await loadShoppingList();}catch(error){alert(error.message);restore.disabled=false;}};
+    row.append(name,restore);container.append(row);
+  }
+}
 function renderJoinedChannels() {
   const section = $('joinedChannelsSection');
-  const list = $('joinedChannelsList');
-  list.replaceChildren();
+  const list = $('joinedChannelsList'), archived = $('archivedChannelsList');
+  list.replaceChildren(); archived.replaceChildren();
   section.classList.toggle('hidden', channels.length === 0);
+  $('archivedListsDetails').classList.toggle('hidden', !channels.some(channel=>channel.archivedAt));
   for (const channel of channels) {
-    const button = document.createElement('button');
-    button.type = 'button';
+    const row=document.createElement('div'); row.className='managed-list-row' + (channel.id === currentChannelId ? ' is-current' : '') + (channel.archivedAt ? ' is-archived' : '');
+    const button = document.createElement(channel.archivedAt ? 'div' : 'button');
+    if (!channel.archivedAt) button.type='button';
     button.className = `joined-channel-button${channel.id === currentChannelId ? ' selected' : ''}`;
     button.setAttribute('aria-current', channel.id === currentChannelId ? 'true' : 'false');
-
-    const name = document.createElement('span');
-    name.className = 'joined-channel-name';
-    name.textContent = channel.name;
-    const role = document.createElement('span');
-    role.className = 'joined-channel-role';
-    role.textContent = channel.role === 'admin' ? '管理者' : '参加者';
-    button.append(name, role);
-    button.addEventListener('click', async () => {
-      channelsDialog.close();
-      await selectChannel(channel.id);
+    const name=document.createElement('span'); name.className='joined-channel-name'; name.textContent=channel.name; name.dataset.i18nIgnore='true';
+    const role=document.createElement('span');role.className='joined-channel-role';
+    role.textContent=translateFeature(channel.archivedAt ? 'アーカイブ済み' : channel.id===currentChannelId ? '✓ 使用中' : channel.role==='admin' ? '管理者' : '参加者');
+    const icon=document.createElement('span');icon.className='managed-list-icon';icon.setAttribute('aria-hidden','true');
+    icon.innerHTML='<i class="ph-bold '+(channel.archivedAt?'ph-archive':'ph-shopping-bag')+'"></i>';
+    button.append(icon,name,role);
+    if (!channel.archivedAt && channel.id !== currentChannelId) { const arrow=document.createElement('i');arrow.className='ph-bold ph-caret-right managed-list-arrow';arrow.setAttribute('aria-hidden','true');button.append(arrow); }
+    if (!channel.archivedAt) button.onclick=()=>selectChannel(channel.id);
+    const actions=document.createElement('div');actions.className='list-management-actions';
+    const action=(label,handler)=>{const b=document.createElement('button');b.type='button';b.className='text-button';
+      const icon=document.createElement('i');icon.className='ph-bold '+(label==='複製'?'ph-copy':label==='アーカイブ'?'ph-archive':'ph-arrow-u-up-left');icon.setAttribute('aria-hidden','true');
+      const text=document.createElement('span');text.textContent=translateFeature(label);b.append(icon,text);
+      b.setAttribute('aria-label',`${translateFeature(label)}: ${channel.name}`);b.onclick=async()=>{b.disabled=true;try{await handler();}catch(error){$('listManagementMessage').textContent=error.message;b.disabled=false;}};actions.append(b);};
+    action('複製',async()=>{
+      const result=await api(`/api/channels/${encodeURIComponent(channel.id)}/duplicate`,{method:'POST'});
+      await refreshChannels(result.id);switchTab('list');
     });
-    list.appendChild(button);
+    if (channel.role==='admin') action(channel.archivedAt ? 'アーカイブを解除' : 'アーカイブ',async()=>{
+      await api(`/api/channels/${encodeURIComponent(channel.id)}/archive`,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({archived:!channel.archivedAt})});
+      await refreshChannels(channel.archivedAt ? channel.id : currentChannelId);
+    });
+    row.append(button,actions);(channel.archivedAt ? archived:list).append(row);
   }
 }
 
-function openChannelsDialog() {
-  renderJoinedChannels();
-  $('createChannelMessage').textContent = '';
-  $('joinChannelMessage').textContent = '';
-  channelsDialog.showModal();
-  applyLanguage(localStorage.getItem('kagopita-language') || 'ja');
+function openChannelsDialog() { return switchTab('channels'); }
+
+const shortcutChoices = {
+  channels: ['共有リスト', 'ph-folders'], members: ['メンバー', 'ph-users-three'],
+  account: ['アカウント', 'ph-user-circle'], favorites: ['お気に入り', 'ph-star'],
+  share: ['共有', 'ph-share-network'], complete: ['完了', 'ph-check-circle']
+};
+const defaultShortcuts = ['channels', 'members'];
+function getShortcuts() {
+  try {
+    const saved = JSON.parse(localStorage.getItem('kagopita-shortcuts'));
+    if (Array.isArray(saved) && saved.length === 2 && saved.every(key => shortcutChoices[key])) return saved;
+  } catch (_) {}
+  return [...defaultShortcuts];
 }
+function renderNavigationShortcuts() {
+  getShortcuts().forEach((key, index) => {
+    const button = $(index ? 'shortcut-right' : 'shortcut-left');
+    const [label, icon] = shortcutChoices[key];
+    button.innerHTML = `<i class="ph-bold ${icon}"></i><span>${label}</span>`;
+    button.disabled = (['complete', 'share'].includes(key) && currentMemberRole !== 'admin') || (key === 'account' && !currentUser);
+    button.classList.toggle('active', key === currentTab);
+    if (key === currentTab) button.setAttribute('aria-current', 'page');
+    else button.removeAttribute('aria-current');
+    button.onclick = () => runNavigationAction(key);
+  });
+}
+function runNavigationAction(key) {
+  closeNavigationMenu();
+  if (key === 'channels') return openChannelsDialog();
+  if (key === 'account') return $('nav-account').click();
+  if (key === 'share') return $('shareButton').click();
+  if (key === 'favorites') return switchTab('add').then(() => { $('favoritesContainer').scrollIntoView({block: 'center'}); });
+  return switchTab(key);
+}
+function syncNavigationMenu() {
+  $('navigationDialog').querySelectorAll('[data-menu-tab]').forEach(button => {
+    const selected = button.dataset.menuTab === currentTab;
+    button.disabled = selected || (button.dataset.menuTab === 'complete' && currentMemberRole !== 'admin');
+    if (selected) button.setAttribute('aria-current', 'page');
+    else button.removeAttribute('aria-current');
+  });
+}
+function openNavigationMenu() {
+  const menu = $('navigationDialog');
+  if (menu.classList.contains('is-open')) return closeNavigationMenu();
+  syncNavigationMenu();
+  menu.scrollTop = 0;
+  menu.inert = false; menu.classList.add('is-open'); menu.setAttribute('aria-hidden', 'false');
+  $('nav-menu').setAttribute('aria-expanded', 'true');
+  applyLanguage(localStorage.getItem('kagopita-language') || 'ja');
+  menu.querySelector('.menu-actions button:not(.hidden):not(:disabled)')?.focus({preventScroll: true});
+}
+function closeNavigationMenu(restoreFocus = false) {
+  const menu = $('navigationDialog');
+  menu.classList.remove('is-open'); menu.inert = true; menu.setAttribute('aria-hidden', 'true');
+  $('nav-menu').setAttribute('aria-expanded', 'false');
+  if (restoreFocus) $('nav-menu').focus();
+}
+document.addEventListener('pointerdown', event => {
+  if (!event.target.closest('#navigationDialog, #nav-menu')) closeNavigationMenu();
+});
+document.addEventListener('focusin', event => {
+  if ($('navigationDialog').classList.contains('is-open') && !event.target.closest('#navigationDialog, #nav-menu')) closeNavigationMenu();
+});
+document.addEventListener('keydown', event => {
+  if (event.key === 'Escape' && !event.defaultPrevented && $('navigationDialog').classList.contains('is-open')) {
+    event.preventDefault(); closeNavigationMenu(true);
+  }
+});
+new ResizeObserver(() => document.documentElement.style.setProperty('--header-bottom', document.querySelector('.header').getBoundingClientRect().bottom + 'px')).observe(document.querySelector('.header'));
+
 
 $('showChannelsButton').addEventListener('click', openChannelsDialog);
-$('closeChannelsDialog').addEventListener('click', () => channelsDialog.close());
-channelsDialog.addEventListener('click', event => {
-  if (event.target === channelsDialog) channelsDialog.close();
+
+
+function selectListAccess(mode, focusTab = false) {
+  document.querySelectorAll('[data-list-access]').forEach(tab => {
+    const selected = tab.dataset.listAccess === mode;
+    tab.setAttribute('aria-selected', String(selected)); tab.tabIndex = selected ? 0 : -1;
+    if (selected && focusTab) tab.focus();
+  });
+  $('createChannelForm').classList.toggle('hidden', mode !== 'create');
+  $('joinChannelForm').classList.toggle('hidden', mode !== 'join');
+}
+document.querySelectorAll('[data-list-access]').forEach(tab => {
+  tab.addEventListener('click', () => selectListAccess(tab.dataset.listAccess));
+  tab.addEventListener('keydown', event => {
+    if (['ArrowLeft','ArrowRight','Home','End'].includes(event.key)) {
+      event.preventDefault();
+      const mode = event.key === 'Home' ? 'create' : event.key === 'End' ? 'join' : tab.dataset.listAccess === 'create' ? 'join' : 'create';
+      selectListAccess(mode, true);
+    }
+  });
 });
 
 $('createChannelForm').addEventListener('submit', async event => {
@@ -1069,8 +1481,9 @@ $('createChannelForm').addEventListener('submit', async event => {
       body: JSON.stringify({ name: $('channelName').value.trim() })
     });
     $('channelName').value = '';
-    channelsDialog.close();
+
     await refreshChannels(created.id);
+    await switchTab('list');
   } catch (error) {
     message.textContent = error.message;
   }
@@ -1086,8 +1499,9 @@ $('joinChannelForm').addEventListener('submit', async event => {
       body: JSON.stringify({ invite: $('channelInvite').value.trim() })
     });
     $('channelInvite').value = '';
-    channelsDialog.close();
+
     await refreshChannels(result.channelId);
+    await switchTab('list');
   } catch (error) {
     message.textContent = error.message;
   }
@@ -1390,6 +1804,7 @@ async function startApp() {
     console.error(error);
     $('noChannels').classList.remove('hidden');
     $('channelViews').classList.add('hidden');
+    document.querySelector('.bottom-nav').classList.add('hidden');
     $('noChannelsTitle').textContent = error.status === 404
       ? 'サーバーを再起動してください'
       : error.status === 401

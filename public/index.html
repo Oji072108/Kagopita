@@ -5,20 +5,45 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#388e3c">
   <meta name="referrer" content="no-referrer">
+  <link rel="icon" href="/favicon.ico" sizes="any">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+  <meta name="description" content="家族や友だちとお買い物リストを共有。カゴピタで、買い忘れも買いすぎもなくそう。">
+  <meta property="og:type" content="website">
+  <meta property="og:locale" content="ja_JP">
+  <meta property="og:site_name" content="カゴピタ">
+  <meta property="og:title" content="カゴピタ｜みんなで使えるお買い物リスト">
+  <meta property="og:description" content="家族や友だちとお買い物リストを共有。カゴピタで、買い忘れも買いすぎもなくそう。">
+  <meta property="og:url" content="__PUBLIC_URL__/">
+  <meta property="og:image" content="__PUBLIC_URL__/share-preview.png">
+  <meta property="og:image:type" content="image/png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="カゴピタ — みんなで使えるお買い物リスト">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="カゴピタ｜みんなで使えるお買い物リスト">
+  <meta name="twitter:description" content="家族や友だちと共有して、買い忘れをなくそう。">
+  <meta name="twitter:image" content="__PUBLIC_URL__/share-preview.png">
   <title>カゴピタ - みんなのお買い物リスト</title>
 
-  <link rel="stylesheet" href="/css/style.css">
+  <link rel="stylesheet" href="/css/style.css?v=20261027-shared-layout1">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@400;500;700;900&display=swap" rel="stylesheet">
   <script src="https://unpkg.com/@phosphor-icons/web"></script>
   <script src="/vendor/qrcode.min.js" defer></script>
-  <script src="/js/app.js" defer></script>
-  <link rel="stylesheet" href="/css/dark-mode.css">
+  <script src="/js/i18n.js?v=20261027-shared-layout1" defer></script>
+  <script src="/js/shopping-language.js?v=20261027-shared-layout1" defer></script>
+  <script src="/js/quantity.js?v=20261027-shared-layout1" defer></script>
+  <script src="/js/category.js?v=20261027-shared-layout1" defer></script>
+  <script src="/js/app.js?v=20261027-shared-layout1" defer></script>
+  <script src="/js/custom-select.js?v=20261027-shared-layout1" defer></script>
+  <link rel="stylesheet" href="/css/dark-mode.css?v=20261027-shared-layout1">
 </head>
 <body>
   <header class="header">
-    <a class="brand" href="#" onclick="switchTab('list'); return false;">
-      <span class="brand-icon"><i class="ph-bold ph-shopping-cart-simple"></i></span>
+    <button id="nav-menu" class="header-menu" type="button" aria-label="メニューを開く" aria-expanded="false" aria-controls="navigationDialog" onclick="openNavigationMenu()"><span class="hamburger-icon" aria-hidden="true"><span></span><span></span><span></span></span></button>
+    <a class="brand" href="/">
+      <span class="brand-icon"><img class="logo-light" src="/logo-light.svg?v=20261027-shared-layout1" alt="" width="44" height="44"><img class="logo-dark" src="/logo-dark.svg?v=20261027-shared-layout1" alt="" width="44" height="44"></span>
       <span>
         <strong>カゴピタ</strong>
         <small>みんなで使えるお買い物リスト</small>
@@ -122,47 +147,70 @@
         <div>
           <span class="eyebrow">現在の進行状況</span>
           <h2>買うものリスト</h2>
-          <p>今日のお買い物を管理しましょう。</p>
+          <p>買ったら左の□を押す</p>
         </div>
         <div class="progress-number">
           <strong id="progressCount">0/0</strong>
-          <small>チェック完了</small>
+          <small>購入済み</small>
         </div>
       </div>
 
+      <details id="searchDetails" class="list-filters search-panel">
+        <summary><i class="ph-bold ph-magnifying-glass" aria-hidden="true"></i><span>商品を検索</span><i class="ph-bold ph-caret-down search-chevron" aria-hidden="true"></i></summary>
+        <div class="form search-body" role="search" aria-label="商品の絞り込み">
+        <label for="itemSearch">商品を検索</label>
+        <input id="itemSearch" type="search" placeholder="商品名・カテゴリ・担当者で検索">
+        <div id="filterDetails" class="filter-selects">
+          <div><label for="categoryFilter">カテゴリ</label><select id="categoryFilter"><option value="">すべてのカテゴリ</option></select></div>
+          <div><label for="assignmentFilter">担当者</label><select id="assignmentFilter"><option value="">すべての担当者</option><option value="mine">自分の担当</option><option value="unassigned">未割り当て</option></select></div>
+        </div>
+        <div class="filter-status"><p id="filterCount" role="status"></p><button id="clearFilters" class="text-button hidden" type="button">フィルターを解除</button></div>
+        </div>
+      </details>
       <div id="categoriesContainer" class="categories"></div>
+      <details id="deletedItemsDetails" class="panel deleted-items-panel">
+        <summary>削除した商品</summary>
+        <div id="deletedItemsList" aria-live="polite"></div>
+      </details>
 
       <div class="actions">
         <button class="btn btn-primary" onclick="switchTab('add')">
-          <i class="ph-bold ph-plus-circle"></i> 項目を追加する
+          <i class="ph-bold ph-plus-circle"></i> 商品を追加する
         </button>
         <button id="completeShoppingButton" class="btn btn-accent hidden" onclick="switchTab('complete')">
           <i class="ph-bold ph-check-circle"></i> 買い物を完了する
         </button>
       </div>
 
-      <div class="panel">
-        <h3 class="panel-title">
-          <i class="ph-bold ph-clock-counter-clockwise"></i>
-          履歴
-        </h3>
-        <div id="familyFeedContainer" class="feed"></div>
-      </div>
+      <details id="historyDetails" class="panel history-panel">
+        <summary><i class="ph-bold ph-clock-counter-clockwise" aria-hidden="true"></i><span>履歴</span><i class="ph-bold ph-caret-down history-chevron" aria-hidden="true"></i></summary>
+        <div class="history-body">
+          <div class="form history-filters" role="search" aria-label="履歴の絞り込み">
+            <label for="historySearch">履歴を検索</label>
+            <input id="historySearch" type="search" maxlength="200" placeholder="商品名・名前で検索">
+            <div class="history-filter-grid">
+              <div><label for="historyAction">操作</label><select id="historyAction">
+                <option value="">すべての操作</option><option value="added">商品を追加</option><option value="edited">商品を編集</option><option value="completed">購入済みに変更</option><option value="uncompleted">未購入に変更</option><option value="deleted">商品を削除</option><option value="members">リスト・メンバーの変更</option>
+              </select></div>
+              <div><label for="historyPerson">名前</label><select id="historyPerson"><option value="">すべてのメンバー</option></select></div>
+              <div><label for="historyPeriod">期間</label><select id="historyPeriod"><option value="">すべての期間</option><option value="today">今日</option><option value="7">過去7日間</option><option value="30">過去30日間</option></select></div>
+            </div>
+            <button id="historyClear" class="text-button hidden" type="button">フィルターを解除</button>
+          </div>
+          <p id="historyCount" class="history-status" role="status" data-i18n-ignore="true"></p>
+          <div id="familyFeedContainer" class="feed"></div>
+          <nav id="historyPagination" class="history-pagination" aria-label="履歴のページ" hidden>
+            <button id="historyPrevious" class="btn btn-secondary" type="button"><i class="ph-bold ph-arrow-left" aria-hidden="true"></i><span>前へ</span></button>
+            <span id="historyPage" data-i18n-ignore="true"></span>
+            <button id="historyNext" class="btn btn-secondary" type="button"><span>次へ</span><i class="ph-bold ph-arrow-right" aria-hidden="true"></i></button>
+          </nav>
+        </div>
+      </details>
     </section>
 
     <section id="view-add" class="view hidden">
-      <div class="panel channel-switch-panel">
-        <h2 class="panel-title">共有リスト</h2>
-        <p class="share-instructions">参加中のリストを表示したり、切り替えたりできます。</p>
-        <button id="showChannelsButton" class="btn btn-secondary" type="button">
-          <i class="ph-bold ph-users-three"></i> 参加中のリストを見る
-        </button>
-      </div>
-      <div class="panel">
-        <h2 class="panel-title">
-          <i class="ph-bold ph-star"></i>
-          お気に入り
-        </h2>
+      <div id="favoriteDetails" class="panel">
+        <h2 class="panel-title"><i class="ph-bold ph-star"></i> お気に入り</h2>
         <div id="favoritesContainer" class="feed"></div>
       </div>
       <div class="panel">
@@ -204,8 +252,24 @@
           </div>
 
           <label for="inputQty">数量</label>
-          <input id="inputQty" name="qty" value="1個" maxlength="50">
+          <input id="inputQty" name="qty" value="1" inputmode="decimal" maxlength="50" aria-describedby="inputQtyPreview">
+          <p id="inputQtyPreview" class="quantity-preview" aria-live="polite" data-i18n-ignore="true"></p>
 
+          <label for="customCategory">カテゴリを自由入力（任意）</label>
+          <input id="customCategory" maxlength="60" list="categorySuggestions" placeholder="例：乳製品・冷凍食品">
+          <datalist id="categorySuggestions"></datalist>
+          <label for="inputAssignee">担当者</label>
+          <select id="inputAssignee"><option value="">未割り当て</option></select>
+          <details id="inputDetails" class="item-extra-details">
+            <summary>詳細（メモ・価格・繰り返し）</summary>
+            <div class="item-extra-fields">
+              <label for="inputNotes">メモ</label><textarea id="inputNotes" maxlength="1000" rows="2"></textarea>
+              <label for="inputPrice">価格（円・商品合計）</label><input id="inputPrice" type="number" inputmode="numeric" min="0" max="99999999" step="1">
+              <label for="inputRecurrence">繰り返し</label><select id="inputRecurrence">
+                <option value="none">繰り返さない</option><option value="daily">毎日</option><option value="weekly">毎週</option><option value="monthly">毎月</option>
+              </select><small>購入済みにすると、指定した間隔で未購入に戻ります。</small>
+            </div>
+          </details>
           <button class="btn btn-primary" type="submit">
             <i class="ph-bold ph-plus-circle"></i> リストに追加する
           </button>
@@ -216,16 +280,14 @@
 
     <section id="view-complete" class="view hidden">
       <div class="complete-card">
-        <div class="basket-icon">🧺</div>
+        <div class="basket-icon" aria-hidden="true"><i class="ph-bold ph-shopping-cart"></i></div>
         <span class="eyebrow">買い物完了</span>
         <h2>買い忘れなし！</h2>
-        <p>この共有リストとログを削除し、メンバー全員をこのリストから退出させます。他のリストやアカウントには影響しません。</p>
+        <p>この共有リストと履歴を削除し、メンバー全員をこのリストから退出させます。他のリストやアカウントには影響しません。</p>
         <button class="btn btn-primary" onclick="handleResetList()">
           <i class="ph-bold ph-check-circle"></i> このリストを完了して削除
         </button>
-        <button class="btn btn-secondary" onclick="switchTab('list')">
-          リストに戻る
-        </button>
+
       </div>
     </section>
 
@@ -239,54 +301,28 @@
       </div>
     </section>
     </div>
-  </main>
-
-  <dialog id="shareDialog" class="share-dialog" aria-labelledby="shareTitle">
-    <div class="share-content">
-      <h2 id="shareTitle" class="panel-title">リストを共有</h2>
-      <p class="share-instructions">QRコードを読み取るか、招待リンクをコピーして参加してほしい人に送ってください。</p>
-      <div id="shareQr" class="share-qr" aria-label="アプリを開くQRコード"></div>
-      <label class="share-link-label" for="shareLink">共有リンク</label>
-      <div class="share-link-row">
-        <input id="shareLink" type="url" readonly>
-        <button id="copyShareLink" class="btn btn-primary" type="button">リンクをコピー</button>
-      </div>
-      <p id="shareMessage" class="share-message" role="status" aria-live="polite"></p>
-      <p class="share-security-note">
-        管理者が作成した招待コードは1回だけ使用できます。リンクを家族だけに共有してください。
-      </p>
-      <form id="emailInviteForm" class="email-invite-form" novalidate>
-        <label for="inviteEmail">メールアドレスで招待</label>
-        <div class="share-link-row">
-          <input id="inviteEmail" type="email" autocomplete="email" placeholder="family@example.com" required>
-          <button class="btn btn-primary" type="submit">送信</button>
-        </div>
-        <p id="emailInviteMessage" class="share-message" role="status" aria-live="polite"></p>
-      </form>
-      <button id="closeShareDialog" class="btn btn-secondary" type="button">閉じる</button>
-    </div>
-  </dialog>
-
-  <dialog id="joinDialog" class="share-dialog" aria-labelledby="joinTitle">
-    <div class="share-content">
-      <h2 id="joinTitle" class="panel-title">共有リストに参加</h2>
-      <p class="share-instructions">リストに表示する名前を入力してください。</p>
-      <form id="joinForm" class="form" novalidate>
-        <label for="joinName">名前</label>
-        <input id="joinName" maxlength="30" required autocomplete="nickname" placeholder="例：お母さん">
-        <p id="joinMessage" class="share-message" role="alert"></p>
-        <button class="btn btn-primary" type="submit">参加する</button>
-        <button id="cancelJoin" class="btn btn-secondary" type="button">キャンセル</button>
-      </form>
-    </div>
-  </dialog>
-
-  <dialog id="profileDialog" class="share-dialog" aria-labelledby="profileTitle">
+<section id="view-account" class="view hidden" aria-labelledby="profileTitle">  <div id="profileDialog" class="tab-content" aria-labelledby="profileTitle">
     <div class="share-content">
       <div class="dialog-title-row">
         <h2 id="profileTitle" class="panel-title">表示名を変更</h2>
-        <button id="closeProfileDialog" class="dialog-close" type="button" aria-label="閉じる">×</button>
+        <button id="closeProfileDialog" class="dialog-close hidden" type="button" aria-label="閉じる"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
       </div>
+        <div class="language-setting">
+          <div class="language-setting-copy">
+            <strong>表示言語</strong>
+            <small>Language</small>
+          </div>
+          <div class="language-menu">
+            <button id="languageSelect" class="language-trigger" type="button" aria-haspopup="listbox" aria-expanded="false">日本語 <i class="ph-bold ph-caret-down"></i></button>
+            <div id="languageOptions" class="language-options hidden" role="listbox" aria-label="表示言語">
+              <button type="button" role="option" data-language="ja">日本語</button>
+              <button type="button" role="option" data-language="en">English</button>
+              <button type="button" role="option" data-language="ko">한국어</button>
+              <button type="button" role="option" data-language="zh">简体中文</button>
+              <button type="button" role="option" data-language="es">Español</button>
+            </div>
+          </div>
+        </div>
       <form id="profileForm" class="form" novalidate>
         <label for="profileName">表示名</label>
         <input id="profileName" maxlength="30" required autocomplete="nickname">
@@ -338,26 +374,83 @@
           <p id="changePasswordMessage" class="share-message" role="alert"></p>
         </form>
         <button id="deleteAccountButton" class="btn btn-danger" type="button">アカウントを削除</button>
-        <div class="language-setting">
-          <div class="language-setting-copy">
-            <strong>表示言語</strong>
-            <small>Language</small>
-          </div>
-          <div class="language-menu">
-            <button id="languageSelect" class="language-trigger" type="button" aria-haspopup="listbox" aria-expanded="false">日本語 <i class="ph-bold ph-caret-down"></i></button>
-            <div id="languageOptions" class="language-options hidden" role="listbox" aria-label="表示言語">
-              <button type="button" role="option" data-language="ja">日本語</button>
-              <button type="button" role="option" data-language="en">English</button>
-              <button type="button" role="option" data-language="ko">한국어</button>
-              <button type="button" role="option" data-language="zh">简体中文</button>
-              <button type="button" role="option" data-language="es">Español</button>
-            </div>
-          </div>
-        </div>
         <button id="logoutButton" class="btn btn-secondary" type="button">ログアウト</button>
       </section>
     </div>
+  </div></section>
+<section id="view-channels" class="view hidden" aria-labelledby="channelsTitle">  <div id="channelsDialog" class="tab-content" aria-labelledby="channelsTitle">
+    <div class="share-content">
+      <header class="shared-lists-heading"><div class="shared-lists-icon" aria-hidden="true"><i class="ph-bold ph-folders"></i></div><div><h2 id="channelsTitle" class="panel-title">共有リスト</h2><p>リストをまとめて管理</p></div></header>
+      <section id="joinedChannelsSection" class="joined-channels hidden">
+        <h3 class="share-link-label">参加中のリスト</h3>
+        <p id="listManagementMessage" role="status"></p>
+        <div id="joinedChannelsList" class="joined-channels-list"></div>
+        <details id="archivedListsDetails" class="archived-lists"><summary>アーカイブしたリスト</summary><div id="archivedChannelsList" class="joined-channels-list"></div></details>
+      </section>
+      <section class="list-access-card" aria-label="リストを作成・参加">
+        <div class="list-access-tabs" role="tablist" aria-label="リストを作成・参加">
+          <button id="createListTab" type="button" role="tab" aria-selected="true" aria-controls="createChannelForm" data-list-access="create"><i class="ph-bold ph-plus" aria-hidden="true"></i><span>リストを作成</span></button>
+          <button id="joinListTab" type="button" role="tab" aria-selected="false" aria-controls="joinChannelForm" tabindex="-1" data-list-access="join"><i class="ph-bold ph-sign-in" aria-hidden="true"></i><span>リストに参加</span></button>
+        </div>
+      <form id="createChannelForm" class="form" role="tabpanel" aria-labelledby="createListTab" novalidate>
+        <label for="channelName">新しいリスト名</label>
+        <input id="channelName" maxlength="60" required placeholder="例：週末の買い出し">
+        <button class="btn btn-primary" type="submit">リストを作成</button>
+        <p id="createChannelMessage" class="share-message" role="alert"></p>
+      </form>
+      <form id="joinChannelForm" class="form hidden" role="tabpanel" aria-labelledby="joinListTab" novalidate>
+        <label for="channelInvite">招待番号（半角英数字8文字）</label>
+        <input id="channelInvite" maxlength="8" minlength="8" required autocomplete="off" placeholder="招待番号を入力">
+        <button class="btn btn-primary" type="submit">招待番号で参加</button>
+        <p id="joinChannelMessage" class="share-message" role="alert"></p>
+      </form>
+      </section>
+
+    </div>
+  </div></section>
+  </main>
+
+  <dialog id="shareDialog" class="share-dialog" aria-labelledby="shareTitle">
+    <div class="share-content">
+      <h2 id="shareTitle" class="panel-title">リストを共有</h2>
+      <p class="share-instructions">QRコードを読み取るか、招待リンクをコピーして参加してほしい人に送ってください。</p>
+      <div id="shareQr" class="share-qr" aria-label="アプリを開くQRコード"></div>
+      <label class="share-link-label" for="shareLink">共有リンク</label>
+      <div class="share-link-row">
+        <input id="shareLink" type="url" readonly>
+        <button id="copyShareLink" class="btn btn-primary" type="button">リンクをコピー</button>
+      </div>
+      <p id="shareMessage" class="share-message" role="status" aria-live="polite"></p>
+      <p class="share-security-note">
+        管理者が作成した招待コードは1回だけ使用できます。リンクを家族だけに共有してください。
+      </p>
+      <form id="emailInviteForm" class="email-invite-form" novalidate>
+        <label for="inviteEmail">メールアドレスで招待</label>
+        <div class="share-link-row">
+          <input id="inviteEmail" type="email" autocomplete="email" placeholder="family@example.com" required>
+          <button class="btn btn-primary" type="submit">送信</button>
+        </div>
+        <p id="emailInviteMessage" class="share-message" role="status" aria-live="polite"></p>
+      </form>
+      <button id="closeShareDialog" class="btn btn-secondary" type="button">閉じる</button>
+    </div>
   </dialog>
+
+  <dialog id="joinDialog" class="share-dialog" aria-labelledby="joinTitle">
+    <div class="share-content">
+      <h2 id="joinTitle" class="panel-title">共有リストに参加</h2>
+      <p class="share-instructions">リストに表示する名前を入力してください。</p>
+      <form id="joinForm" class="form" novalidate>
+        <label for="joinName">名前</label>
+        <input id="joinName" maxlength="30" required autocomplete="nickname" placeholder="例：お母さん">
+        <p id="joinMessage" class="share-message" role="alert"></p>
+        <button class="btn btn-primary" type="submit">参加する</button>
+        <button id="cancelJoin" class="btn btn-secondary" type="button">キャンセル</button>
+      </form>
+    </div>
+  </dialog>
+
+
 
   <dialog id="deleteAccountDialog" class="share-dialog confirm-dialog" aria-labelledby="deleteAccountTitle">
     <div class="share-content">
@@ -383,53 +476,60 @@
     </div>
   </dialog>
 
-  <dialog id="channelsDialog" class="share-dialog" aria-labelledby="channelsTitle">
-    <div class="share-content">
-      <h2 id="channelsTitle" class="panel-title">共有リスト</h2>
-      <section id="joinedChannelsSection" class="joined-channels hidden">
-        <h3 class="share-link-label">参加中のリスト</h3>
-        <div id="joinedChannelsList" class="joined-channels-list"></div>
-      </section>
-      <form id="createChannelForm" class="form" novalidate>
-        <label for="channelName">新しいリスト名</label>
-        <input id="channelName" maxlength="60" required placeholder="例：週末の買い出し">
-        <button class="btn btn-primary" type="submit">リストを作成</button>
-        <p id="createChannelMessage" class="share-message" role="alert"></p>
-      </form>
-      <form id="joinChannelForm" class="form" novalidate>
-        <label for="channelInvite">招待番号（半角英数字8文字）</label>
-        <input id="channelInvite" maxlength="8" minlength="8" required autocomplete="off" placeholder="招待番号を入力">
-        <button class="btn btn-primary" type="submit">招待番号で参加</button>
-        <p id="joinChannelMessage" class="share-message" role="alert"></p>
-      </form>
-      <button id="closeChannelsDialog" class="btn btn-secondary" type="button">閉じる</button>
-    </div>
-  </dialog>
 
-  <nav class="bottom-nav">
-    <div class="bottom-nav-links without-complete without-account">
-      <button id="nav-list" class="nav-item active" onclick="switchTab('list')">
-        <i class="ph-fill ph-list-checks"></i>
-        <span>リスト</span>
-      </button>
-      <button id="nav-add" class="nav-item" onclick="switchTab('add')">
-        <i class="ph-bold ph-plus-circle"></i>
-        <span>追加・共有</span>
-      </button>
-      <button id="nav-members" class="nav-item" onclick="switchTab('members')">
-        <i class="ph-bold ph-users-three"></i>
-        <span>メンバー</span>
-      </button>
-      <button id="nav-account" class="nav-item hidden" type="button" aria-haspopup="dialog">
-        <i class="ph-bold ph-user-circle"></i>
-        <span>アカウント</span>
-      </button>
-      <button id="nav-complete" class="nav-item hidden" onclick="switchTab('complete')">
-        <i class="ph-bold ph-check-circle"></i>
-        <span>完了</span>
-      </button>
+
+  <div id="navigationDialog" class="header-navigation" aria-labelledby="navigationTitle" aria-hidden="true" inert>
+    <div class="share-content navigation-content">
+      <div class="dialog-title-row"><h2 id="navigationTitle" class="panel-title">メニュー</h2></div>
+      <p id="currentListName" class="share-instructions"></p>
+      <div class="menu-actions">
+        <button class="btn btn-secondary" data-menu-tab="list" onclick="runNavigationAction('list')">買うものリスト</button>
+        <button class="btn btn-secondary" data-menu-tab="add" onclick="runNavigationAction('add')">商品を追加</button>
+        <button id="showChannelsButton" data-menu-tab="channels" class="btn btn-secondary" type="button">リストを切り替える</button>
+        <button id="menu-share" class="btn btn-secondary" onclick="runNavigationAction('share')">このリストを共有</button>
+        <button id="nav-members" class="btn btn-secondary" data-menu-tab="members" onclick="runNavigationAction('members')">メンバー</button>
+        <button class="btn btn-secondary" type="button" data-menu-tab="account" onclick="runNavigationAction('account')">アカウント</button>
+        <button id="nav-complete" class="btn btn-secondary" data-menu-tab="complete" onclick="runNavigationAction('complete')">買い物を完了</button>
+      </div>
+    </div>
+  </div>
+  <nav class="bottom-nav hidden" aria-label="メインナビゲーション">
+    <div class="bottom-nav-links">
+      <button id="nav-list" class="nav-item active" onclick="switchTab('list')"><i class="ph-fill ph-list-checks"></i><span>リスト</span></button>
+      <button id="shortcut-left" class="nav-item" type="button"></button>
+      <button id="nav-add" class="nav-item" onclick="switchTab('add')"><i class="ph-bold ph-plus-circle"></i><span>追加</span></button>
+      <button id="shortcut-right" class="nav-item" type="button"></button>
+      <button id="nav-account" class="nav-item" type="button"><i class="ph-bold ph-user-circle"></i><span>アカウント</span></button>
     </div>
   </nav>
+  <dialog id="itemEditDialog" class="item-edit-dialog">
+    <form id="itemEditForm" class="form">
+      <h2>商品を編集</h2>
+      <div class="edit-field"><label for="editName">商品名</label><input id="editName" required maxlength="100"></div>
+      <div class="edit-field"><label for="editQty">数量</label>
+        <div class="edit-quantity-row"><input id="editQty" required inputmode="decimal" maxlength="50" aria-describedby="editQtyPreview">
+          <p id="editQtyPreview" class="quantity-preview" aria-live="polite" data-i18n-ignore="true"></p>
+        </div>
+      </div>
+      <div class="edit-field"><label for="editCategory">売り場・カテゴリ</label><input id="editCategory" required maxlength="60" list="categorySuggestions"></div>
+      <div class="edit-field"><label for="editAssignee">担当者</label><select id="editAssignee"></select></div>
+      <details id="editDetails" class="item-extra-details">
+            <summary>詳細（メモ・価格・繰り返し）</summary>
+            <div class="item-extra-fields">
+              <label for="editNotes">メモ</label><textarea id="editNotes" maxlength="1000" rows="2"></textarea>
+              <label for="editPrice">価格（円・商品合計）</label><input id="editPrice" type="number" inputmode="numeric" min="0" max="99999999" step="1">
+              <label for="editRecurrence">繰り返し</label><select id="editRecurrence">
+                <option value="none">繰り返さない</option><option value="daily">毎日</option><option value="weekly">毎週</option><option value="monthly">毎月</option>
+              </select><small>購入済みにすると、指定した間隔で未購入に戻ります。</small>
+            </div>
+          </details>
+      <p id="editMessage" role="alert"></p>
+      <div class="edit-actions">
+        <button id="cancelItemEdit" class="btn btn-secondary" type="button">キャンセル</button>
+        <button id="saveItemButton" class="btn btn-primary" type="submit">変更を保存</button>
+      </div>
+    </form>
+  </dialog>
   <script src="/js/dark-mode.js"></script>
 </body>
 </html>

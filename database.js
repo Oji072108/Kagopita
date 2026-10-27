@@ -99,6 +99,20 @@ db.exec(`
   );
 `);
 
+const itemColumns = new Set(db.prepare('PRAGMA table_info(shopping_items)').all().map(column => column.name));
+for (const [name, definition] of Object.entries({
+  notes: "TEXT NOT NULL DEFAULT ''", price: 'INTEGER', deleted_at: 'TEXT',
+  recurrence: "TEXT NOT NULL DEFAULT 'none'", next_due_at: 'TEXT'
+})) {
+  if (!itemColumns.has(name)) db.exec(`ALTER TABLE shopping_items ADD COLUMN ${name} ${definition}`);
+}
+if (!db.prepare('PRAGMA table_info(channels)').all().some(column => column.name === 'archived_at')) {
+  db.exec('ALTER TABLE channels ADD COLUMN archived_at TEXT');
+}
+if (!itemColumns.has('assigned_to')) {
+  db.exec('ALTER TABLE shopping_items ADD COLUMN assigned_to TEXT REFERENCES users(id) ON DELETE SET NULL');
+}
+
 const userColumns = new Set(db.prepare('PRAGMA table_info(users)').all().map(column => column.name));
 if (!userColumns.has('email')) db.exec('ALTER TABLE users ADD COLUMN email TEXT');
 if (!userColumns.has('password_salt')) db.exec('ALTER TABLE users ADD COLUMN password_salt TEXT');

@@ -6,7 +6,8 @@
   --text: #e8f1ea;
   --muted: #a9b8ad;
   --border: #3b493e;
-  --accent: #76c56b;
+  --accent: #ff8a65;
+  --accent-dark: #f4511e;
 }
 
 .dark-mode body,
@@ -33,13 +34,15 @@ body.dark-mode { background: var(--bg) !important; color: var(--text) !important
 .dark-mode .panel-title, .dark-mode h1, .dark-mode h2, .dark-mode h3 { color: #e8f1ea !important; }
 .dark-mode .welcome-mode-tabs { background: #263229 !important; border-color: #415044 !important; }
 .dark-mode .welcome-mode-tab { color: #a9b8ad !important; background: transparent !important; }
-.dark-mode .welcome-mode-tab.active { background: #324936 !important; color: #e8f1ea !important; box-shadow: 0 2px 8px rgba(0,0,0,.28) !important; }
-.dark-mode .welcome-mode-tab[aria-selected="true"], .dark-mode .welcome-mode-tab.selected { background: #324936 !important; color: #e8f1ea !important; }
+/* The selected tab uses the shared sliding highlight, not a button background. */
+.dark-mode .welcome-mode-tabs::before { background: #324936; box-shadow: 0 2px 8px rgba(0,0,0,.28); }
+.dark-mode .welcome-mode-tab[aria-pressed="true"],
+.dark-mode .welcome-mode-tab[aria-pressed="true"] span { color: #e8f1ea !important; }
 .dark-mode .btn-secondary { background: #263229 !important; color: #e8f1ea !important; border-color: #415044 !important; }
 .dark-mode .text-button { color: #9cdb91 !important; }
 .dark-mode .form input:focus, .dark-mode .form textarea:focus, .dark-mode .form select:focus { border-color: #76c56b !important; box-shadow: 0 0 0 3px rgba(118,197,107,.2) !important; }
 .theme-toggle {
-  position: fixed; right: 16px; bottom: 88px; z-index: 9999; width: 38px; height: 38px;
+  position: fixed; right: max(16px, env(safe-area-inset-right)); bottom: calc(16px + env(safe-area-inset-bottom)); z-index: 9999; width: 38px; height: 38px;
   border: 1px solid #d7e2d9; border-radius: 50%; background: #fff;
   color: #4d8f3d; cursor: pointer; font-size: 18px; display: grid; place-items: center;
 }
@@ -47,3 +50,51 @@ body.dark-mode { background: var(--bg) !important; color: var(--text) !important
 .dark-mode .theme-toggle { border-color: rgba(255,255,255,.25); background: rgba(255,255,255,.16); color: #fff; }
 .dark-mode .theme-toggle:hover { background: rgba(255,255,255,.28); }
 .theme-toggle .theme-icon { display: block; width: 20px; height: 20px; }
+
+/* Keep the toggle above navigation when a list is open. */
+.bottom-nav:not(.hidden) ~ .theme-toggle { bottom: calc(88px + env(safe-area-inset-bottom)); }
+
+/* Component surfaces must override light gradients as well as background colors. */
+:root.dark-mode { --primary-light: #294431; --primary-dark: #a0df99; --background: #121713; }
+.dark-mode .progress-card { background: linear-gradient(120deg, #243c2b, #1d3024) !important; border-color: var(--border); }
+.dark-mode .feed-item, .dark-mode .favorite-row,
+.dark-mode .joined-channel-button, .dark-mode .avatar-picker,
+.dark-mode .language-setting, .dark-mode .language-trigger,
+.dark-mode .language-options, .dark-mode .category-picker-trigger,
+.dark-mode .category-options { background: var(--surface-strong); color: var(--text); border-color: var(--border); }
+.dark-mode .eyebrow, .dark-mode .feed-avatar, .dark-mode .basket-icon { background: #294431; color: #d5f0d6; }
+.dark-mode .progress-number strong, .dark-mode .category-picker-trigger i,
+.dark-mode .language-trigger i { color: #9cdb91; }
+.dark-mode .feed-content, .dark-mode .language-setting-copy strong,
+.dark-mode .language-trigger span, .dark-mode .category-picker-trigger span { color: var(--text); }
+.dark-mode .view { background: transparent !important; }
+.dark-mode .dialog-close { background: #324936; color: #e8f1ea; }
+.dark-mode .dialog-close:hover { background: #415e46; }
+
+/* Checkbox paint lives on ::before; overriding the button alone leaves it white. */
+.dark-mode .check-button::before { background: #172019; border-color: #8b9d8e; }
+.dark-mode .check-button.checked::before { background: #507d43; border-color: #9cdb91; }
+.dark-mode .favorite-toggle, .dark-mode .favorite-remove-button,
+.dark-mode .item-edit-button { background: #29372d; color: #d6e4d9; border-color: #536857; }
+.dark-mode .favorite-toggle.selected { background: #4d4120; color: #f3cf68; }
+.dark-mode .delete-button { background: #422a2a; color: #ffa9a0; }
+.dark-mode .delete-button:hover { background: #573333; }
+.dark-mode .shopping-item { border-color: var(--border); }
+.dark-mode .item-name { color: var(--text); }
+.dark-mode .item-name.completed { color: #9eafa2; }
+.dark-mode .list-filters, .dark-mode .item-edit-dialog { background: var(--surface); border-color: var(--border); }
+.dark-mode .item-edit-dialog form { background: transparent !important; }
+
+.dark-mode .joined-channel-button.selected { border-color: #9cdb91; background: #294431; }
+.dark-mode .shopping-item .item-edit-button, .dark-mode .shopping-item .favorite-toggle, .dark-mode .shopping-item .delete-button { background: transparent; }
+.dark-mode #nav-add span { color: #9cdb91; }
+
+/* Dark actions keep green/orange meaning without light-theme brightness. */
+.dark-mode .btn-primary { background: #315b3a; color: #e4f5e8; box-shadow: none; }
+.dark-mode .btn-primary:not(:disabled):hover { background: #3c6c46; }
+.dark-mode .btn-accent { background: #8f442d; color: #ffeade; box-shadow: none; }
+.dark-mode .btn-accent:not(:disabled):hover { background: #a45136; }
+.dark-mode .history-pagination { background: transparent !important; }
+.dark-mode .history-pagination .btn { background: #263229 !important; border-color: #536857 !important; color: #c2edb8 !important; }
+.dark-mode .history-pagination .btn:not(:disabled):hover { background: #324936 !important; border-color: #87bd7d !important; }
+.dark-mode .history-pagination .btn span { color: inherit; }

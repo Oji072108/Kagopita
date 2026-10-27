@@ -3,6 +3,7 @@ require('dotenv').config();
 const express = require('express');
 const crypto = require('crypto');
 const path = require('path');
+const fs = require('fs');
 const { promisify } = require('util');
 const nodemailer = require('nodemailer');
 const { broadcast, subscribe } = require('./realtime');
@@ -41,6 +42,13 @@ app.get('/vendor/qrcode.min.js', (req, res) => {
 });
 app.use('/css', express.static(path.join(__dirname, 'public', 'css')));
 app.use('/js', express.static(path.join(__dirname, 'public', 'js')));
+// Render absolute sharing URLs for crawlers without requiring JavaScript.
+app.get(['/', '/index.html'], (req, res) => {
+  const publicUrl = (process.env.PUBLIC_URL || `http://localhost:${PORT}`).replace(/\/+$/, '');
+  const safeUrl = publicUrl.replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
+  const html = fs.readFileSync(path.join(__dirname, 'public', 'index.html'), 'utf8');
+  res.type('html').send(html.replaceAll('__PUBLIC_URL__', safeUrl));
+});
 app.use(express.static(path.join(__dirname, 'public')));
 
 function readSessionToken(req) {
@@ -327,7 +335,7 @@ function getChannelRole(channelId, userId) {
 }
 
 function attachChannel(req, res, next) {
-  const channel = db.prepare('SELECT id, name FROM channels WHERE id = ?')
+  const channel = db.prepare('SELECT id, name, archived_at FROM channels WHERE id = ?')
     .get(req.params.channelId);
   const role = channel && getChannelRole(channel.id, req.user.id);
   if (!channel || !role) {
@@ -743,7 +751,7 @@ app.delete('/api/account', (req, res) => {
 
 app.get('/api/me', (req, res) => {
   const channels = db.prepare(`
-    SELECT channels.id, channels.name, channel_members.role
+    SELECT channels.id, channels.name, channels.archived_at AS archivedAt, channel_members.role
     FROM channel_members JOIN channels ON channels.id = channel_members.channel_id
     WHERE channel_members.user_id = ?
     ORDER BY channel_members.joined_at
@@ -852,6 +860,7 @@ function removeChannelMember(channelId, userId, actor, action) {
   if (!membership) return false;
 
   const remove = () => database.transaction(() => {
+    db.prepare('UPDATE shopping_items SET assigned_to = NULL WHERE channel_id = ? AND assigned_to = ?').run(channelId, userId);
     db.prepare('DELETE FROM channel_members WHERE channel_id = ? AND user_id = ?')
       .run(channelId, userId);
 
@@ -904,6 +913,35 @@ app.post('/api/channels/:channelId/complete', attachChannel, requireChannelAdmin
   res.json({ message: '買い物を完了しました。リストを削除しました。' });
 });
 
+// A duplicate belongs only to its creator; shared members and invites are not copied.
+app.post('/api/channels/:channelId/duplicate', attachChannel, (req, res) => {
+  const name = req.body?.name === undefined ? `${req.channel.name.slice(0, 54)}（コピー）` : req.body.name;
+  if (typeof name !== 'string' || !name.trim() || name.trim().length > 60) return res.status(400).json({ error: 'リスト名は1〜60文字で入力してください。' });
+  const id = crypto.randomUUID();
+  const timestamp = database.now();
+  database.transaction(() => {
+    db.prepare('INSERT INTO channels (id, name, created_at) VALUES (?, ?, ?)').run(id, name.trim(), timestamp);
+    db.prepare("INSERT INTO channel_members (channel_id, user_id, role, joined_at) VALUES (?, ?, 'admin', ?)").run(id, req.user.id, timestamp);
+    db.prepare(`INSERT INTO shopping_items (channel_id, category, name, qty, completed, added_by, created_at, notes, price, recurrence)
+      SELECT ?, category, name, qty, 0, ?, ?, notes, price, recurrence FROM shopping_items
+      WHERE channel_id = ? AND deleted_at IS NULL`).run(id, req.user.username, timestamp, req.channel.id);
+    logActivity(id, req.user, 'created');
+  });
+  broadcast({ type: 'channels', recipientId: req.user.id });
+  res.status(201).json({ id, name: name.trim(), role: 'admin', archivedAt: null });
+});
+
+app.patch('/api/channels/:channelId/archive', attachChannel, requireChannelAdmin, (req, res) => {
+  if (typeof req.body?.archived !== 'boolean') return res.status(400).json({ error: 'アーカイブの状態が無効です。' });
+  const archivedAt = req.body.archived ? database.now() : null;
+  db.prepare('UPDATE channels SET archived_at = ? WHERE id = ?').run(archivedAt, req.channel.id);
+  logActivity(req.channel.id, req.user, archivedAt ? 'archived' : 'unarchived');
+  for (const member of db.prepare('SELECT user_id FROM channel_members WHERE channel_id = ?').all(req.channel.id)) {
+    broadcast({ type: 'channels', recipientId: member.user_id });
+  }
+  res.json({ archivedAt });
+});
+
 app.get('/api/events', (req, res) => {
   res.set({
     'Content-Type': 'text/event-stream',
@@ -922,7 +960,13 @@ app.get('/api/events', (req, res) => {
 
 app.use('/api/channels/:channelId', attachChannel, require('./routes/items'));
 
-app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
+const { renewDueItems } = require('./recurring');
+const recurringTimer = setInterval(() => {
+  try { renewDueItems(broadcast); } catch (error) { console.error('Recurring item refresh failed.', error); }
+}, 60000);
+recurringTimer.unref();
+
+
 
 app.use((error, req, res, next) => {
   if (res.headersSent) return next(error);
