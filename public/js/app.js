@@ -160,6 +160,7 @@ async function api(url, options = {}) {
       ? '利用状態を確認できません。画面を更新するか、招待リンクから参加し直してください。'
       : `通信に失敗しました（応答番号：${response.status}）。`));
     error.status = response.status;
+    if (data.code === 'TERMS_ACCEPTANCE_REQUIRED') await window.KagopitaTerms?.refresh();
     throw error;
   }
   return response.json();
@@ -1150,6 +1151,8 @@ $('credentialsForm').addEventListener('submit', async event => {
   event.preventDefault();
   const button = event.currentTarget.querySelector('[type="submit"]');
   const message = $('credentialsMessage');
+  if (!window.KagopitaTerms.requireAcceptance('credentials')) return;
+  $('credentialsForm').dataset.termsSubmitting = 'true';
   button.disabled = true;
   message.textContent = '';
   try {
@@ -1158,7 +1161,8 @@ $('credentialsForm').addEventListener('submit', async event => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         email: $('accountEmail').value.trim(),
-        password: $('accountPassword').value
+        password: $('accountPassword').value,
+        ...window.KagopitaTerms.acceptance('credentials')
       })
     });
     currentUser.email = email;
@@ -1174,7 +1178,8 @@ $('credentialsForm').addEventListener('submit', async event => {
   } catch (error) {
     message.textContent = error.message;
   } finally {
-    button.disabled = false;
+    delete $('credentialsForm').dataset.termsSubmitting;
+    window.KagopitaTerms.sync();
   }
 });
 
@@ -1516,14 +1521,16 @@ $('noChannelsCreateButton').addEventListener('click', openChannelsDialog);
 function showWelcomeMode(mode) {
   const tabMode = ['join', 'guest', 'account'].includes(mode)
     ? mode
-    : mode === 'login' ? 'account' : null;
+    : ['login', 'register'].includes(mode) ? 'account' : null;
   // Keep the account mode tabs visible while switching between register and login.
   const showModeTabs = mode === 'choice' || tabMode !== null || mode === 'login';
   $('welcomeModeTabs').classList.toggle('hidden', !showModeTabs);
   const modeIndex = { join: 0, guest: 1, account: 2 }[tabMode];
   if (modeIndex !== undefined) $('welcomeModeTabs').style.setProperty('--welcome-mode-index', modeIndex);
   document.querySelectorAll('[data-welcome-mode]').forEach(button => {
-    button.setAttribute('aria-pressed', String(button.dataset.welcomeMode === tabMode));
+    const selected = button.dataset.welcomeMode === tabMode;
+    button.setAttribute('aria-pressed', String(selected));
+    button.disabled = selected;
   });
   $('welcomeAccountForm').classList.toggle('hidden', mode !== 'guest');
   $('welcomeAuthActions').classList.add('hidden');
@@ -1539,7 +1546,9 @@ function showWelcomeMode(mode) {
 }
 
 $('welcomeModeTabs').querySelectorAll('[data-welcome-mode]').forEach(button => {
-  button.addEventListener('click', () => showWelcomeMode(button.dataset.welcomeMode));
+  button.addEventListener('click', () => {
+    if (!button.disabled) showWelcomeMode(button.dataset.welcomeMode);
+  });
 });
 $('showWelcomeRegister').addEventListener('click', () => showWelcomeMode('register'));
 $('showWelcomeLogin').addEventListener('click', () => showWelcomeMode('login'));
@@ -1591,20 +1600,23 @@ document.querySelectorAll('.welcomeBackButton').forEach(button => {
 
 $('welcomeAccountForm').addEventListener('submit', async event => {
   event.preventDefault();
+  if (!window.KagopitaTerms.requireAcceptance('guest')) return;
   const button = event.currentTarget.querySelector('[type="submit"]');
+  $('welcomeAccountForm').dataset.termsSubmitting = 'true';
   button.disabled = true;
   $('welcomeAccountMessage').textContent = '';
   try {
     await api('/api/account', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username: $('welcomeAccountName').value.trim() })
+      body: JSON.stringify({ username: $('welcomeAccountName').value.trim(), ...window.KagopitaTerms.acceptance('guest') })
     });
     window.location.reload();
   } catch (error) {
     $('welcomeAccountMessage').textContent = error.message;
   } finally {
-    button.disabled = false;
+    delete $('welcomeAccountForm').dataset.termsSubmitting;
+    window.KagopitaTerms.sync();
   }
 });
 
@@ -1612,6 +1624,7 @@ $('welcomeRegisterForm').addEventListener('submit', async event => {
   event.preventDefault();
   const button = event.currentTarget.querySelector('[type="submit"]');
   const message = $('welcomeRegisterMessage');
+  if (!window.KagopitaTerms.requireAcceptance('register')) return;
   const requiredFields = [...event.currentTarget.querySelectorAll('input[required]')];
   const emailInput = $('welcomeRegisterEmail');
   const invalidEmail = Boolean(emailInput.value.trim()) && !emailInput.checkValidity();
@@ -1626,6 +1639,7 @@ $('welcomeRegisterForm').addEventListener('submit', async event => {
     (invalidEmail ? emailInput : missingFields[0]).focus();
     return;
   }
+  $('welcomeRegisterForm').dataset.termsSubmitting = 'true';
   button.disabled = true;
   message.textContent = '';
   try {
@@ -1635,7 +1649,8 @@ $('welcomeRegisterForm').addEventListener('submit', async event => {
       body: JSON.stringify({
         username: $('welcomeRegisterName').value.trim(),
         email: $('welcomeRegisterEmail').value.trim(),
-        password: $('welcomeRegisterPassword').value
+        password: $('welcomeRegisterPassword').value,
+        ...window.KagopitaTerms.acceptance('register')
       })
     });
     $('welcomeRegisterPassword').value = '';
@@ -1647,7 +1662,8 @@ $('welcomeRegisterForm').addEventListener('submit', async event => {
   } catch (error) {
     message.textContent = error.message;
   } finally {
-    button.disabled = false;
+    delete $('welcomeRegisterForm').dataset.termsSubmitting;
+    window.KagopitaTerms.sync();
   }
 });
 
@@ -1758,7 +1774,9 @@ $('welcomeLoginForm').addEventListener('submit', async event => {
 
 $('welcomeJoinForm').addEventListener('submit', async event => {
   event.preventDefault();
+  if (!window.KagopitaTerms.requireAcceptance('join')) return;
   const button = event.currentTarget.querySelector('[type="submit"]');
+  $('welcomeJoinForm').dataset.termsSubmitting = 'true';
   button.disabled = true;
   $('welcomeJoinMessage').textContent = '';
   try {
@@ -1767,14 +1785,16 @@ $('welcomeJoinForm').addEventListener('submit', async event => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         invite: $('welcomeInviteCode').value.trim(),
-        username: $('welcomeJoinName').value.trim()
+        username: $('welcomeJoinName').value.trim(),
+        ...window.KagopitaTerms.acceptance('join')
       })
     });
     window.location.reload();
   } catch (error) {
     $('welcomeJoinMessage').textContent = error.message;
   } finally {
-    button.disabled = false;
+    delete $('welcomeJoinForm').dataset.termsSubmitting;
+    window.KagopitaTerms.sync();
   }
 });
 

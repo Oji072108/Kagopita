@@ -32,12 +32,7 @@ body.dark-mode { background: var(--bg) !important; color: var(--text) !important
 .dark-mode .header small, .dark-mode .header .brand-subtitle { color: #d9eddc !important; }
 .dark-mode .panel { background: #1d251f !important; border-color: #415044 !important; box-shadow: 0 8px 24px rgba(0,0,0,.25) !important; }
 .dark-mode .panel-title, .dark-mode h1, .dark-mode h2, .dark-mode h3 { color: #e8f1ea !important; }
-.dark-mode .welcome-mode-tabs { background: #263229 !important; border-color: #415044 !important; }
-.dark-mode .welcome-mode-tab { color: #a9b8ad !important; background: transparent !important; }
 /* The selected tab uses the shared sliding highlight, not a button background. */
-.dark-mode .welcome-mode-tabs::before { background: #324936; box-shadow: 0 2px 8px rgba(0,0,0,.28); }
-.dark-mode .welcome-mode-tab[aria-pressed="true"],
-.dark-mode .welcome-mode-tab[aria-pressed="true"] span { color: #e8f1ea !important; }
 .dark-mode .btn-secondary { background: #263229 !important; color: #e8f1ea !important; border-color: #415044 !important; }
 .dark-mode .text-button { color: #9cdb91 !important; }
 .dark-mode .form input:focus, .dark-mode .form textarea:focus, .dark-mode .form select:focus { border-color: #76c56b !important; box-shadow: 0 0 0 3px rgba(118,197,107,.2) !important; }
@@ -123,3 +118,15 @@ body.dark-mode { background: var(--bg) !important; color: var(--text) !important
 .dark-mode #actionDialogError { color: #ffb4ad; }
 .dark-mode #actionDialogBody { color: #b8c6bc; }
 .dark-mode .action-dialog::backdrop { background: #050c09bf; }
+
+.dark-mode .header-navigation .menu-actions .btn:not(:disabled):hover { background: #263f2c !important; }
+.dark-mode .terms-update { background: #263f2c; }
+.dark-mode .terms-update strong, .dark-mode .terms-checkbox span { color: var(--text); }
+.dark-mode .terms-error { color: #ffb4a4; }
+
+.dark-mode .welcome-mode-tabs { background: #263229 !important; border-color: #415044 !important; }
+.dark-mode .welcome-mode-tab { color: #a9b8ad !important; background: transparent !important; }
+/* The selected tab uses the shared sliding highlight, not a button background. */
+.dark-mode .welcome-mode-tabs::before { background: #324936; box-shadow: 0 2px 8px rgba(0,0,0,.28); }
+.dark-mode .welcome-mode-tab[aria-pressed="true"],
+.dark-mode .welcome-mode-tab[aria-pressed="true"] span { color: #e8f1ea !important; }

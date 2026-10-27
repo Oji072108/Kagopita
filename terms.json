@@ -1,0 +1,194 @@
+{
+  "version": "2026-10-28-v2",
+  "updatedAt": "2026-10-28",
+  "title": "カゴピタ 利用規約（案）",
+  "summary": "ゲスト・招待での参加を含む、利用開始時の条件を追加しました。",
+  "sections": [
+    {
+      "heading": "1. この規約について",
+      "body": "この規約は、買い物リスト共有サービス「カゴピタ」の利用条件を定めます。メールアドレスでのアカウント登録、ゲストとしての利用開始、アカウントを持たずに招待で参加する場合は、内容を確認し、同意したうえで利用を開始してください。"
+    },
+    {
+      "heading": "2. アカウントの管理",
+      "body": "登録情報は正確に入力し、メールアドレスとパスワードはご自身で管理してください。他人のアカウントの利用や、他人になりすましての登録は禁止します。"
+    },
+    {
+      "heading": "3. リストの共有とゲスト利用",
+      "body": "共有リストの内容や表示名は、そのリストの参加者に表示されます。招待コードや共有リンクは、参加を許可した相手にだけ渡してください。ゲスト利用では、利用環境やセッションの消失により元のリストにアクセスできなくなる場合があります。"
+    },
+    {
+      "heading": "4. 禁止事項",
+      "body": "法令に違反する行為、他人への嫌がらせ、第三者の権利やプライバシーの侵害、不正アクセス、サービスに過度の負荷をかける行為を禁止します。共有が不要な個人情報や機密情報は入力しないでください。"
+    },
+    {
+      "heading": "5. データの取り扱い",
+      "body": "サービスの提供のため、表示名、メールアドレス、認証情報、リストの内容、操作履歴、利用規約への同意記録などを保存します。共有リストの内容と操作履歴は参加者が閲覧できます。メールアドレスは確認やアカウント管理のために使用します。"
+    },
+    {
+      "heading": "6. サービスの変更・停止",
+      "body": "保守、障害対応、機能改善などのため、サービスの内容を変更したり、一時停止したりする場合があります。重要な情報はご自身でも控えを保存してください。"
+    },
+    {
+      "heading": "7. 責任について",
+      "body": "買い物リストの内容や購入判断は、利用者ご自身で確認してください。サービスの正確性や継続利用を常に保証するものではありません。運営者の責任は、適用される法令に従います。"
+    },
+    {
+      "heading": "8. 規約の変更",
+      "body": "規約を変更するときは、変更後の規約、更新日、変更内容をサービス内でお知らせします。アカウント利用者とゲスト利用者のどちらにも通知します。更新通知の確認は、新しい規約への同意とは区別して記録します。"
+    }
+  ],
+  "translations": {
+    "en": {
+      "title": "Kagopita Terms of Service (Draft)",
+      "summary": "Terms for getting started, including guest use and joining by invitation, have been added.",
+      "sections": [
+        {
+          "heading": "1. About these terms",
+          "body": "These terms set out the conditions for using Kagopita, a shopping-list sharing service. Before registering an email account, starting as a guest, or joining by invitation without an existing account, please review and accept these terms."
+        },
+        {
+          "heading": "2. Managing your account",
+          "body": "Provide accurate registration information and manage your own email address and password. Using someone else’s account or registering while impersonating another person is prohibited."
+        },
+        {
+          "heading": "3. Shared lists and guest use",
+          "body": "Shared-list contents and display names are visible to participants in that list. Give invitation codes and sharing links only to people you intend to allow to join. When using the service as a guest, changes to your environment or loss of your session may prevent you from accessing your original lists."
+        },
+        {
+          "heading": "4. Prohibited conduct",
+          "body": "Unlawful activity, harassment, infringement of others’ rights or privacy, unauthorized access, and actions that place excessive load on the service are prohibited. Do not enter personal or confidential information that does not need to be shared."
+        },
+        {
+          "heading": "5. Handling data",
+          "body": "To provide the service, we store information including display names, email addresses, authentication information, list contents, activity history, and records of acceptance of these terms. Participants can view shared-list contents and activity history. Email addresses are used for verification and account management."
+        },
+        {
+          "heading": "6. Service changes and interruptions",
+          "body": "The service may be changed or temporarily suspended for maintenance, incident response, improvements, or similar reasons. Please keep your own copies of important information."
+        },
+        {
+          "heading": "7. Responsibility",
+          "body": "Please check shopping-list contents and purchasing decisions yourself. The service’s accuracy or continued availability is not guaranteed at all times. The operator’s liability is governed by applicable law."
+        },
+        {
+          "heading": "8. Changes to these terms",
+          "body": "When these terms change, the revised terms, update date, and summary of changes will be announced within the service. Both account holders and guest users will be notified. Acknowledging an update notice is recorded separately from accepting the new terms."
+        }
+      ]
+    },
+    "ko": {
+      "title": "카고피타 이용약관 (초안)",
+      "summary": "게스트 이용 및 초대 참여를 포함한 최초 이용 조건을 추가했습니다.",
+      "sections": [
+        {
+          "heading": "1. 약관 안내",
+          "body": "이 약관은 장보기 목록 공유 서비스 「카고피타」의 이용 조건을 정합니다. 이메일 계정 등록, 게스트 이용 시작, 계정 없이 초대로 참여하는 경우에는 내용을 확인하고 동의한 후 이용을 시작해 주세요."
+        },
+        {
+          "heading": "2. 계정 관리",
+          "body": "등록 정보는 정확하게 입력하고, 이메일 주소와 비밀번호는 본인이 관리해 주세요. 다른 사람의 계정을 사용하거나 다른 사람을 사칭하여 등록하는 행위는 금지합니다."
+        },
+        {
+          "heading": "3. 목록 공유 및 게스트 이용",
+          "body": "공유 목록의 내용과 표시 이름은 해당 목록의 참여자에게 표시됩니다. 초대 코드와 공유 링크는 참여를 허용한 사람에게만 전달해 주세요. 게스트 이용 시에는 이용 환경의 변경이나 세션 소실로 인해 기존 목록에 접근할 수 없게 될 수 있습니다."
+        },
+        {
+          "heading": "4. 금지 행위",
+          "body": "법령 위반, 타인에 대한 괴롭힘, 제삼자의 권리나 사생활 침해, 무단 접근, 서비스에 과도한 부하를 주는 행위를 금지합니다. 공유할 필요가 없는 개인정보나 기밀 정보는 입력하지 마세요."
+        },
+        {
+          "heading": "5. 데이터 처리",
+          "body": "서비스 제공을 위해 표시 이름, 이메일 주소, 인증 정보, 목록 내용, 활동 기록, 이용약관 동의 기록 등을 저장합니다. 공유 목록의 내용과 활동 기록은 참여자가 열람할 수 있습니다. 이메일 주소는 확인 및 계정 관리를 위해 사용합니다."
+        },
+        {
+          "heading": "6. 서비스 변경 및 중단",
+          "body": "유지보수, 장애 대응, 기능 개선 등을 위해 서비스 내용을 변경하거나 일시 중단할 수 있습니다. 중요한 정보는 본인도 별도로 보관해 주세요."
+        },
+        {
+          "heading": "7. 책임",
+          "body": "장보기 목록의 내용과 구매 결정은 이용자가 직접 확인해 주세요. 서비스의 정확성이나 지속적인 이용 가능성을 항상 보장하는 것은 아닙니다. 운영자의 책임은 적용되는 법령에 따릅니다."
+        },
+        {
+          "heading": "8. 약관 변경",
+          "body": "약관을 변경할 때는 변경된 약관, 업데이트 날짜, 변경 내용을 서비스 내에서 안내합니다. 계정 이용자와 게스트 이용자 모두에게 알립니다. 업데이트 알림 확인은 새로운 약관에 대한 동의와 구분하여 기록합니다."
+        }
+      ]
+    },
+    "zh": {
+      "title": "Kagopita 服务条款（草案）",
+      "summary": "新增了首次使用条件，包括访客使用和受邀加入。",
+      "sections": [
+        {
+          "heading": "1. 关于本条款",
+          "body": "本条款规定购物清单共享服务“Kagopita”的使用条件。注册邮箱账户、开始访客使用或在没有现有账户的情况下通过邀请加入前，请阅读并同意本条款。"
+        },
+        {
+          "heading": "2. 账户管理",
+          "body": "请准确填写注册信息，并自行保管电子邮箱和密码。禁止使用他人账户或冒用他人身份注册。"
+        },
+        {
+          "heading": "3. 清单共享与访客使用",
+          "body": "共享清单的内容及显示名称会向该清单的参与者显示。请仅向您允许加入的人提供邀请码和共享链接。以访客身份使用时，使用环境的变化或会话丢失可能导致您无法访问原有清单。"
+        },
+        {
+          "heading": "4. 禁止行为",
+          "body": "禁止违法、骚扰他人、侵犯第三方权利或隐私、未经授权访问以及对服务造成过度负载的行为。请勿输入无需共享的个人信息或机密信息。"
+        },
+        {
+          "heading": "5. 数据处理",
+          "body": "为提供服务，我们会保存显示名称、电子邮箱、身份验证信息、清单内容、操作记录、条款同意记录等信息。参与者可以查看共享清单的内容及操作记录。电子邮箱用于验证和账户管理。"
+        },
+        {
+          "heading": "6. 服务变更与暂停",
+          "body": "因维护、故障处理、功能改进等原因，服务内容可能发生变更或暂时停止。请自行备份重要信息。"
+        },
+        {
+          "heading": "7. 责任",
+          "body": "请自行核实购物清单内容及购买决定。本服务不保证始终准确或持续可用。运营方的责任依适用法律确定。"
+        },
+        {
+          "heading": "8. 条款变更",
+          "body": "条款发生变更时，我们会在服务内告知修改后的条款、更新日期及变更内容。账户用户和访客用户都会收到通知。查看更新通知的记录与同意新条款的记录相互独立。"
+        }
+      ]
+    },
+    "es": {
+      "title": "Términos del servicio de Kagopita (Borrador)",
+      "summary": "Se han añadido las condiciones de inicio de uso, incluido el acceso como invitado y mediante invitación.",
+      "sections": [
+        {
+          "heading": "1. Acerca de estos términos",
+          "body": "Estos términos establecen las condiciones de uso de Kagopita, un servicio para compartir listas de la compra. Antes de registrar una cuenta con correo electrónico, empezar como invitado o unirte mediante invitación sin una cuenta existente, lee y acepta estos términos."
+        },
+        {
+          "heading": "2. Gestión de la cuenta",
+          "body": "Proporciona información de registro correcta y gestiona tu propia dirección de correo electrónico y contraseña. Está prohibido usar cuentas ajenas o registrarse suplantando la identidad de otra persona."
+        },
+        {
+          "heading": "3. Listas compartidas y uso como invitado",
+          "body": "El contenido de las listas compartidas y los nombres visibles se muestran a los participantes de cada lista. Facilita los códigos de invitación y los enlaces para compartir solo a las personas a las que quieras permitir el acceso. Al usar el servicio como invitado, los cambios en tu entorno o la pérdida de la sesión pueden impedirte acceder a tus listas originales."
+        },
+        {
+          "heading": "4. Conductas prohibidas",
+          "body": "Se prohíben las actividades ilegales, el acoso, la vulneración de los derechos o la privacidad de terceros, el acceso no autorizado y las acciones que sobrecarguen el servicio. No introduzcas información personal o confidencial que no sea necesario compartir."
+        },
+        {
+          "heading": "5. Tratamiento de los datos",
+          "body": "Para prestar el servicio, almacenamos información como nombres visibles, direcciones de correo electrónico, información de autenticación, contenido de las listas, historial de actividad y registros de aceptación de estos términos. Los participantes pueden consultar el contenido y el historial de actividad de las listas compartidas. El correo electrónico se utiliza para la verificación y la gestión de la cuenta."
+        },
+        {
+          "heading": "6. Cambios e interrupciones del servicio",
+          "body": "Podemos modificar o suspender temporalmente el servicio por mantenimiento, resolución de incidencias, mejoras de funciones u otros motivos similares. Conserva tus propias copias de la información importante."
+        },
+        {
+          "heading": "7. Responsabilidad",
+          "body": "Comprueba por tu cuenta el contenido de las listas y tus decisiones de compra. No se garantiza en todo momento la exactitud ni la disponibilidad continuada del servicio. La responsabilidad del operador se rige por la legislación aplicable."
+        },
+        {
+          "heading": "8. Cambios en estos términos",
+          "body": "Cuando cambien estos términos, se anunciarán dentro del servicio el texto revisado, la fecha de actualización y un resumen de los cambios. Se notificará tanto a quienes tengan una cuenta como a los usuarios invitados. La confirmación de haber visto el aviso se registra por separado de la aceptación de los nuevos términos."
+        }
+      ]
+    }
+  }
+}

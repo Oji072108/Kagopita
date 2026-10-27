@@ -930,7 +930,8 @@ button {
   animation: modeTabPop 0.32s ease both;
 }
 
-.welcome-mode-tab:active { transform: scale(0.96); }
+.welcome-mode-tab:not(:disabled):active { transform: scale(0.96); }
+.welcome-mode-tab:disabled { opacity: 1; cursor: default; }
 .welcome-mode-tab { transition: transform .18s ease, background .22s ease, color .22s ease, box-shadow .22s ease; }
 .welcome-mode-tab { position: relative; z-index: 1; }
 
@@ -1710,3 +1711,43 @@ button {
 #channelsDialog .list-management-actions span, .list-access-tabs button span { color: inherit; }
 .dark-mode #channelsDialog .shared-lists-heading,
 .dark-mode #channelsDialog .joined-channels { background: transparent !important; }
+
+/* Grouped, touch-friendly navigation. */
+.header-navigation { width: min(360px, calc(100vw - 24px)); max-height: calc(100dvh - var(--header-bottom, 80px) - 24px); border-radius: 20px; }
+.header-navigation .share-content { padding: 16px; }
+.header-navigation .dialog-title-row { display: flex; align-items: center; justify-content: space-between; border: 0; padding-bottom: 0; }
+.header-navigation .panel-title { margin: 0; padding: 0; border: 0; }
+#currentListName { overflow-wrap: anywhere; }
+.navigation-group-label { font-size: 11px; font-weight: 700; color: var(--muted); margin: 14px 10px 6px; letter-spacing: .06em; }
+.header-navigation .menu-actions { gap: 4px; }
+.header-navigation .menu-actions .btn { display: flex; gap: 12px; border: 0; border-radius: 12px; padding: 12px 30px 12px 12px; min-height: 48px; }
+.header-navigation .menu-actions .btn > i { width: 24px; flex-shrink: 0; font-size: 21px; color: var(--muted); }
+.header-navigation .menu-actions .btn > span { color: inherit; }
+.header-navigation .menu-actions .btn::after { right: 12px; }
+.header-navigation .menu-actions .btn[aria-current="page"] { padding-left: 12px; border-radius: 12px; }
+.header-navigation .menu-actions .btn[aria-current="page"] > i { color: inherit; }
+.navigation-divider { border-top: 1px solid var(--border); margin: 10px 0 4px; }
+@media (prefers-reduced-motion: reduce) { .welcome-mode-tab, .welcome-form-slide { animation: none; transition: none; } }
+
+/* Versioned terms: required when creating an account or guest identity. */
+.terms-consent { display: grid; gap: 10px; padding: 14px; margin-top: 8px; border: 1px solid var(--border); border-radius: 12px; }
+.terms-consent .terms-open { justify-self: start; text-align: left; }
+.terms-read-hint { margin: 0; font-size: 12px; line-height: 1.7; color: var(--muted); }
+.terms-checkbox { display: flex; align-items: flex-start; gap: 10px; margin: 0; font-size: 14px; line-height: 1.7; cursor: pointer; }
+.terms-checkbox input { flex: 0 0 22px; width: 22px; height: 22px; margin: 2px 0; accent-color: var(--primary); }
+.terms-checkbox:has(input:disabled) { opacity: .65; cursor: default; }
+.terms-error:empty { display: none; }
+.terms-error { margin: 0; font-size: 13px; color: #b33e2e; }
+.terms-dialog { padding: 20px; width: min(600px, calc(100vw - 24px)); max-height: calc(100dvh - 24px); overflow: auto; }
+.terms-dialog-heading h2 { font-size: 20px; margin: 0 0 6px; }
+.terms-dialog-heading > p { font-size: 12px; color: var(--muted); margin: 0 0 14px; overflow-wrap: anywhere; }
+.terms-document { height: min(48dvh, 420px); overflow-y: auto; overscroll-behavior: contain; padding: 0 16px; border: 1px solid var(--border); border-radius: 12px; line-height: 1.9; }
+.terms-document h3 { font-size: 16px; margin: 20px 0 8px; }
+.terms-document p { font-size: 14px; margin: 0 0 20px; }
+.terms-read-status { font-size: 12px; line-height: 1.7; min-height: 1.7em; color: var(--muted); }
+.terms-dialog .dialog-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.terms-dialog .dialog-actions .btn { flex: 1 1 140px; min-height: 44px; padding: 12px; }
+.terms-update { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; border: 1px solid var(--border); border-radius: 14px; padding: 16px; background: var(--primary-light); margin-bottom: 18px; }
+.terms-update > div { flex: 1 1 240px; }
+.terms-update strong { font-size: 15px; }
+.terms-update p { margin: 6px 0 0; font-size: 13px; line-height: 1.7; overflow-wrap: anywhere; }

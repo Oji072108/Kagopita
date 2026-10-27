@@ -121,6 +121,9 @@ if (!userColumns.has('email_verified')) {
   db.exec('ALTER TABLE users ADD COLUMN email_verified INTEGER NOT NULL DEFAULT 0');
 }
 if (!userColumns.has('avatar_data')) db.exec('ALTER TABLE users ADD COLUMN avatar_data TEXT');
+for (const column of ['terms_accepted_version', 'terms_accepted_at', 'terms_seen_version']) {
+  if (!userColumns.has(column)) db.exec(`ALTER TABLE users ADD COLUMN ${column} TEXT`);
+}
 db.exec(`
   CREATE UNIQUE INDEX IF NOT EXISTS users_email_unique
   ON users(email COLLATE NOCASE) WHERE email IS NOT NULL;
