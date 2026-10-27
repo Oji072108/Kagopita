@@ -223,6 +223,8 @@ function updateChannelControls() {
   if (!currentUser) closeNavigationMenu();
   document.querySelector('.bottom-nav').classList.toggle('hidden', !currentUser);
   $('nav-list').disabled = !currentChannelId;
+  $('nav-list').classList.toggle('hidden', !currentChannelId);
+  document.querySelector('.bottom-nav-links').classList.toggle('without-list', !currentChannelId);
   $('nav-add').disabled = !currentChannelId;
   $('noChannels').classList.toggle('hidden', !currentUser || channels.length > 0 || ['channels', 'account'].includes(currentTab));
   $('channelViews').classList.toggle('hidden', !currentChannelId || ['channels', 'account'].includes(currentTab));
@@ -237,7 +239,9 @@ function updateChannelControls() {
   const listName = channels.find(c => c.id === currentChannelId)?.name || 'なし';
   $('currentListName').textContent = '使用中: ' + listName;
   document.querySelector('.actions').classList.toggle('single-action', currentMemberRole !== 'admin');
-  if (currentTab === 'complete' && currentMemberRole !== 'admin') switchTab('list');
+  syncNavigationMenu();
+  if (currentUser && !currentChannelId && ['list', 'add', 'members', 'complete'].includes(currentTab)) switchTab('channels');
+  else if (currentTab === 'complete' && currentMemberRole !== 'admin') switchTab('list');
 }
 
 function resetSignedOutState() {
@@ -1403,6 +1407,7 @@ function renderNavigationShortcuts() {
     const [label, icon] = shortcutChoices[key];
     button.innerHTML = `<i class="ph-bold ${icon}"></i><span>${label}</span>`;
     button.disabled = (['complete', 'share'].includes(key) && currentMemberRole !== 'admin') || (key === 'account' && !currentUser);
+    button.classList.toggle('hidden', key === 'members' && !currentChannelId);
     button.classList.toggle('active', key === currentTab);
     if (key === currentTab) button.setAttribute('aria-current', 'page');
     else button.removeAttribute('aria-current');
@@ -1421,6 +1426,7 @@ function runNavigationAction(key) {
 function syncNavigationMenu() {
   $('navigationDialog').querySelectorAll('[data-menu-tab]').forEach(button => {
     const selected = button.dataset.menuTab === currentTab;
+    button.classList.toggle('hidden', !currentChannelId && ['list', 'members'].includes(button.dataset.menuTab));
     button.disabled = selected || (button.dataset.menuTab === 'complete' && currentMemberRole !== 'admin');
     if (selected) button.setAttribute('aria-current', 'page');
     else button.removeAttribute('aria-current');
