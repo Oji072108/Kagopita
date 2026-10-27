@@ -1,5 +1,19 @@
 /* Canonical Japanese keys, translated consistently for static and rebuilt controls. */
 window.kagopitaLocaleRows = [
+["ダークモード", "Dark mode", "다크 모드", "深色模式", "Modo oscuro"],
+["ライトモードに切り替え", "Switch to light mode", "라이트 모드로 전환", "切换到浅色模式", "Cambiar a modo claro"],
+["ダークモードに切り替え", "Switch to dark mode", "다크 모드로 전환", "切换到深色模式", "Cambiar a modo oscuro"],
+
+["メンバーを退出させますか？", "Remove this member?", "멤버를 내보낼까요?", "移除此成员？", "¿Quitar a este miembro?"],
+["「{name}」をこのリストから退出させます。再び参加するには、新しい招待が必要です。", "Remove “{name}” from this list. They will need a new invitation to rejoin.", "「{name}」님을 이 목록에서 내보냅니다. 다시 참여하려면 새 초대가 필요합니다.", "将“{name}”移出此清单。重新加入需要新的邀请。", "Se quitará a «{name}» de esta lista. Necesitará una nueva invitación para volver."],
+["このリストを完了して削除しますか？", "Complete and delete this list?", "이 목록을 완료하고 삭제할까요?", "完成并删除此清单？", "¿Completar y eliminar esta lista?"],
+["このリストと履歴を削除し、メンバー全員が退出します。他のリストやアカウントには影響しません。この操作は取り消せません。", "This deletes the list and its history and removes all members. Other lists and accounts are not affected. This cannot be undone.", "목록과 기록을 삭제하고 모든 멤버가 나갑니다. 다른 목록과 계정에는 영향을 주지 않습니다. 되돌릴 수 없습니다.", "将删除清单和历史记录，并移除所有成员。其他清单和账户不受影响。此操作无法撤销。", "Se eliminarán la lista y su historial y se quitarán todos los miembros. Las demás listas y cuentas no se verán afectadas. No se puede deshacer."],
+["完了して削除", "Complete and delete", "완료 후 삭제", "完成并删除", "Completar y eliminar"],
+["お知らせ", "Notice", "알림", "通知", "Aviso"],
+["処理中…", "Working…", "처리 중…", "处理中…", "Procesando…"],
+["処理できませんでした。もう一度お試しください。", "Something went wrong. Please try again.", "처리하지 못했습니다. 다시 시도해 주세요.", "操作失败，请重试。", "No se pudo completar. Inténtalo de nuevo."],
+["このリストから退出させられました。", "You have been removed from this list.", "이 목록에서 내보내졌습니다.", "您已被移出此清单。", "Se te ha quitado de esta lista."],
+
 ['リストをまとめて管理','Your shopping, organized','쇼핑 목록을 한곳에서','集中管理购物清单','Tus compras, organizadas'],
 ['リストに参加','Join a list','목록 참여','加入清单','Unirse a una lista'],
 ['乳製品・チーズ', 'Dairy · cheese', '유제품 · 치즈', '乳制品・奶酪', 'Lácteos · queso'],

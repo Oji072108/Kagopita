@@ -148,6 +148,14 @@ async function api(url, options = {}) {
 
   if (!response.ok) {
     const data = await response.json().catch(() => ({}));
+    if (response.status === 401 && currentUser) {
+      resetSignedOutState();
+      $('noChannels').classList.remove('hidden');
+      $('noChannelsTitle').textContent = translateFeature('ログイン');
+      $('noChannelsMessage').textContent = data.error || '';
+      $('noChannelsCreateButton').classList.add('hidden');
+      showWelcomeMode('login');
+    }
     const error = new Error(data.error || (response.status === 401
       ? '利用状態を確認できません。画面を更新するか、招待リンクから参加し直してください。'
       : `通信に失敗しました（応答番号：${response.status}）。`));
@@ -211,6 +219,7 @@ function channelUrl(endpoint) {
 }
 
 function updateChannelControls() {
+  if (!currentUser) closeNavigationMenu();
   document.querySelector('.bottom-nav').classList.toggle('hidden', !currentUser);
   $('nav-list').disabled = !currentChannelId;
   $('nav-add').disabled = !currentChannelId;
@@ -228,6 +237,18 @@ function updateChannelControls() {
   $('currentListName').textContent = '使用中: ' + listName;
   document.querySelector('.actions').classList.toggle('single-action', currentMemberRole !== 'admin');
   if (currentTab === 'complete' && currentMemberRole !== 'admin') switchTab('list');
+}
+
+function resetSignedOutState() {
+  ++channelSelectionVersion;
+  currentUser = null;
+  currentChannelId = null;
+  currentMemberRole = null;
+  channels = [];
+  currentTab = 'list';
+  updateChannelControls();
+  $('view-account').classList.add('hidden');
+  $('view-channels').classList.add('hidden');
 }
 
 let channelSelectionVersion = 0;
@@ -294,7 +315,7 @@ async function openItemEditor(item, category) {
     fillAssignees($('editAssignee'), item.assignedTo);
     $('editMessage').textContent = '';
     $('itemEditDialog').showModal();
-  } catch (error) { alert(error.message); }
+  } catch (error) { KagopitaDialogs.notice(error.message); }
 }
 
 $('cancelItemEdit').onclick = () => $('itemEditDialog').close();
@@ -512,7 +533,7 @@ async function loadFavorites() {
           await api(channelUrl(`/favorites/${favorite.id}/add`), { method: 'POST' });
           await loadShoppingList();
         } catch (error) {
-          alert(error.message);
+          KagopitaDialogs.notice(error.message);
         } finally {
           add.disabled = false;
         }
@@ -531,7 +552,7 @@ async function loadFavorites() {
           await loadFavorites();
           await loadShoppingList();
         } catch (error) {
-          alert(error.message);
+          KagopitaDialogs.notice(error.message);
         } finally {
           remove.disabled = false;
         }
@@ -558,7 +579,7 @@ async function toggleFavorite(itemId, isFavorite) {
     await loadShoppingList();
     if (currentTab === 'add') await loadFavorites();
   } catch (error) {
-    alert(error.message);
+    KagopitaDialogs.notice(error.message);
   }
 }
 
@@ -686,7 +707,7 @@ async function toggleItem(id) {
     await api(channelUrl(`/items/${id}/toggle`), { method: 'PATCH' });
     await loadShoppingList();
   } catch (error) {
-    alert(error.message);
+    KagopitaDialogs.notice(error.message);
   }
 }
 
@@ -695,7 +716,7 @@ async function deleteItem(id) {
     await api(channelUrl(`/items/${id}`), { method: 'DELETE' });
     await loadShoppingList();
   } catch (error) {
-    alert(error.message);
+    KagopitaDialogs.notice(error.message);
   }
 }
 
@@ -838,13 +859,13 @@ $('addForm').addEventListener('submit', async event => {
 });
 
 async function handleResetList() {
-  if (!confirm('買い物を完了すると、このリストと履歴が削除され、メンバー全員がこのリストから退出します。よろしいですか？')) return;
-  try {
-    await api(channelUrl('/complete'), { method: 'POST' });
-    await refreshChannels(null);
-  } catch (error) {
-    alert(error.message);
-  }
+  const url = channelUrl('/complete');
+  await KagopitaDialogs.show({
+    title: 'このリストを完了して削除しますか？',
+    body: 'このリストと履歴を削除し、メンバー全員が退出します。他のリストやアカウントには影響しません。この操作は取り消せません。',
+    confirmLabel: '完了して削除', danger: true,
+    onConfirm: async () => { await api(url, { method: 'POST' }); await refreshChannels(null); }
+  });
 }
 
 async function switchTab(tab) {
@@ -1013,15 +1034,17 @@ async function loadMembers() {
       const kick = document.createElement('button');
       kick.className = 'kick-button';
       kick.type = 'button';
-      kick.textContent = '退出させる';
+      const kickIcon = document.createElement('i'); kickIcon.className = 'ph ph-user-minus'; kickIcon.setAttribute('aria-hidden', 'true');
+      const kickLabel = document.createElement('span'); kickLabel.textContent = '退出させる';
+      kick.append(kickIcon, kickLabel);
       kick.addEventListener('click', async () => {
-        if (!confirm(`${member.username}さんをこのリストから退出させますか？`)) return;
-        try {
-          await api(channelUrl(`/members/${encodeURIComponent(member.id)}`), { method: 'DELETE' });
-          await loadMembers();
-        } catch (error) {
-          alert(error.message);
-        }
+        const url = channelUrl(`/members/${encodeURIComponent(member.id)}`);
+        await KagopitaDialogs.show({
+          title: 'メンバーを退出させますか？',
+          body: '「{name}」をこのリストから退出させます。再び参加するには、新しい招待が必要です。',
+          values: { name: member.username }, confirmLabel: '退出させる', danger: true,
+          onConfirm: async () => { await api(url, { method: 'DELETE' }); await loadMembers(); }
+        });
       });
       row.appendChild(kick);
     }
@@ -1219,23 +1242,12 @@ $('changeEmailForm').addEventListener('submit', async event => {
   }
 });
 
-$('deleteAccountButton').addEventListener('click', async () => {
-  $('deleteAccountMessage').textContent = '';
-  $('deleteAccountDialog').showModal();
-});
-
-$('cancelDeleteAccount').addEventListener('click', () => $('deleteAccountDialog').close());
-$('confirmDeleteAccount').addEventListener('click', async () => {
-  const button = $('confirmDeleteAccount');
-  button.disabled = true;
-  try {
-    await api('/api/account', { method: 'DELETE' });
-    window.location.reload();
-  } catch (error) {
-    $('deleteAccountMessage').textContent = error.message;
-    button.disabled = false;
-  }
-});
+$('deleteAccountButton').addEventListener('click', () => KagopitaDialogs.show({
+  title: 'アカウントを削除しますか？',
+  body: 'この操作は取り消せません。アカウントと関連するデータが削除されます。',
+  confirmLabel: 'アカウントを削除', danger: true,
+  onConfirm: async () => { await api('/api/account', { method: 'DELETE' }); window.location.reload(); }
+}));
 
 $('accountVerificationForm').addEventListener('submit', async event => {
   event.preventDefault();
@@ -1302,23 +1314,13 @@ $('logoutButton').addEventListener('click', async event => {
 
 $('closeProfileDialog').addEventListener('click', () => switchTab('list'));
 $('leaveGroup').addEventListener('click', () => {
-  $('leaveConfirmError').textContent = '';
-  $('leaveConfirmDialog').showModal();
-});
-$('cancelLeave').addEventListener('click', () => $('leaveConfirmDialog').close());
-$('confirmLeave').addEventListener('click', async event => {
-  const button = event.currentTarget;
-  button.disabled = true;
-  try {
-    await api(channelUrl('/membership'), { method: 'DELETE' });
-    $('leaveConfirmDialog').close();
-    switchTab('list');
-    await refreshChannels(null);
-  } catch (error) {
-    $('leaveConfirmError').textContent = error.message;
-  } finally {
-    button.disabled = false;
-  }
+  const url = channelUrl('/membership');
+  return KagopitaDialogs.show({
+    title: 'リストから退出しますか？',
+    body: '退出すると、このリストが参加中のリストから削除されます。管理者の場合、残っているメンバーに管理者権限が移ります。',
+    confirmLabel: '退出する', danger: true,
+    onConfirm: async () => { await api(url, { method: 'DELETE' }); await refreshChannels(null); }
+  });
 });
 
 const channelsDialog = $('channelsDialog');
@@ -1334,7 +1336,7 @@ function renderDeletedItems(items) {
     const name=document.createElement('span'); const label=document.createElement('span'); shoppingName(label,item.name); const quantity=document.createElement('span'); shoppingQuantity(quantity,item.name,item.qty,' (',')'); name.append(label,quantity);
     const restore=document.createElement('button'); restore.type='button'; restore.className='text-button'; restore.textContent=translateFeature('復元');
     restore.setAttribute('aria-label', `${item.name}: ${translateFeature('復元')}`);
-    restore.onclick=async()=>{restore.disabled=true; try {await api(channelUrl(`/items/${item.id}/restore`),{method:'POST'});await loadShoppingList();}catch(error){alert(error.message);restore.disabled=false;}};
+    restore.onclick=async()=>{restore.disabled=true; try {await api(channelUrl(`/items/${item.id}/restore`),{method:'POST'});await loadShoppingList();}catch(error){KagopitaDialogs.notice(error.message);restore.disabled=false;}};
     row.append(name,restore);container.append(row);
   }
 }
@@ -1404,6 +1406,7 @@ function renderNavigationShortcuts() {
 }
 function runNavigationAction(key) {
   closeNavigationMenu();
+  if (!currentUser) return;
   if (key === 'channels') return openChannelsDialog();
   if (key === 'account') return $('nav-account').click();
   if (key === 'share') return $('shareButton').click();
@@ -1419,6 +1422,7 @@ function syncNavigationMenu() {
   });
 }
 function openNavigationMenu() {
+  if (!currentUser) return closeNavigationMenu();
   const menu = $('navigationDialog');
   if (menu.classList.contains('is-open')) return closeNavigationMenu();
   syncNavigationMenu();
@@ -1802,6 +1806,7 @@ async function startApp() {
     await refreshChannels(joinedChannelId || currentChannelId);
   } catch (error) {
     console.error(error);
+    resetSignedOutState();
     $('noChannels').classList.remove('hidden');
     $('channelViews').classList.add('hidden');
     document.querySelector('.bottom-nav').classList.add('hidden');
@@ -1834,7 +1839,7 @@ async function startApp() {
   events.addEventListener('membership-removed', async event => {
     const data = JSON.parse(event.data);
     if (data.userId === currentUser?.id) {
-      alert('このリストから退出させられました。');
+      KagopitaDialogs.notice('このリストから退出させられました。');
       await refreshChannels(null);
       return;
     }

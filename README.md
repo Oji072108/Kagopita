@@ -167,3 +167,9 @@ Checks: `node scripts/test-item-management.cjs`, `node scripts/test-quantity.cjs
 Each browser keeps its own Japanese, English, Korean, Simplified Chinese, or Spanish preference. `public/js/shopping-language.js` provides an offline, alias-based vocabulary for common shopping names, feeding both category and quantity inference. Names, favorites, deleted items, and known counters are localized for display; saved names/quantities, edits, brands, and notes retain their original text. Unknown words are not machine-translated. Extend the five-column vocabulary for additional terms; no external translation service or credential is used.
 
 Verify with `node scripts/test-shopping-language.cjs` and the Playwright `scripts/test-shopping-language-ui.cjs` (uses API fixtures, never live list writes).
+
+### Themed dialogs and signed-out navigation
+
+Destructive actions and error notices use `public/js/dialogs.js` instead of native browser popups. Dialogs preserve names as text, focus Cancel first, prevent repeated submissions, and show request failures inline. The header sun/moon switch follows the system until explicitly changed, saves the preference, and supports keyboard use and cross-tab updates. Shopping navigation stays hidden until a session is confirmed and closes on session expiry; authenticated guest accounts still have navigation.
+
+With Playwright available separately, run `NODE_PATH=<test-env>/node_modules node scripts/test-action-dialogs-ui.cjs` and `NODE_PATH=<test-env>/node_modules node scripts/test-auth-theme-ui.cjs`. Both load the real preview assets (localhost:3001 by default; override with `KAGOPITA_TEST_URL`) and intercept API requests, so no live members, lists, or accounts are changed.

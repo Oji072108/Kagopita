@@ -26,24 +26,25 @@
   <meta name="twitter:image" content="__PUBLIC_URL__/share-preview.png">
   <title>カゴピタ - みんなのお買い物リスト</title>
 
-  <link rel="stylesheet" href="/css/style.css?v=20261027-shared-layout1">
+  <link rel="stylesheet" href="/css/style.css?v=20261028-dialogs2">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@400;500;700;900&display=swap" rel="stylesheet">
   <script src="https://unpkg.com/@phosphor-icons/web"></script>
   <script src="/vendor/qrcode.min.js" defer></script>
-  <script src="/js/i18n.js?v=20261027-shared-layout1" defer></script>
-  <script src="/js/shopping-language.js?v=20261027-shared-layout1" defer></script>
-  <script src="/js/quantity.js?v=20261027-shared-layout1" defer></script>
-  <script src="/js/category.js?v=20261027-shared-layout1" defer></script>
-  <script src="/js/app.js?v=20261027-shared-layout1" defer></script>
-  <script src="/js/custom-select.js?v=20261027-shared-layout1" defer></script>
-  <link rel="stylesheet" href="/css/dark-mode.css?v=20261027-shared-layout1">
+  <script src="/js/i18n.js?v=20261028-dialogs2" defer></script>
+  <script src="/js/shopping-language.js?v=20261028-dialogs2" defer></script>
+  <script src="/js/quantity.js?v=20261028-dialogs2" defer></script>
+  <script src="/js/category.js?v=20261028-dialogs2" defer></script>
+  <script src="/js/dialogs.js?v=20261028-dialogs2" defer></script>
+  <script src="/js/app.js?v=20261028-dialogs2" defer></script>
+  <script src="/js/custom-select.js?v=20261028-dialogs2" defer></script>
+  <link rel="stylesheet" href="/css/dark-mode.css?v=20261028-dialogs2">
 </head>
 <body>
   <header class="header">
-    <button id="nav-menu" class="header-menu" type="button" aria-label="メニューを開く" aria-expanded="false" aria-controls="navigationDialog" onclick="openNavigationMenu()"><span class="hamburger-icon" aria-hidden="true"><span></span><span></span><span></span></span></button>
+    <button id="nav-menu" class="header-menu hidden" type="button" aria-label="メニューを開く" aria-expanded="false" aria-controls="navigationDialog" onclick="openNavigationMenu()"><span class="hamburger-icon" aria-hidden="true"><span></span><span></span><span></span></span></button>
     <a class="brand" href="/">
-      <span class="brand-icon"><img class="logo-light" src="/logo-light.svg?v=20261027-shared-layout1" alt="" width="44" height="44"><img class="logo-dark" src="/logo-dark.svg?v=20261027-shared-layout1" alt="" width="44" height="44"></span>
+      <span class="brand-icon"><img class="logo-light" src="/logo-light.svg?v=20261028-dialogs2" alt="" width="44" height="44"><img class="logo-dark" src="/logo-dark.svg?v=20261028-dialogs2" alt="" width="44" height="44"></span>
       <span>
         <strong>カゴピタ</strong>
         <small>みんなで使えるお買い物リスト</small>
@@ -51,8 +52,8 @@
     </a>
 
     <div class="header-actions">
-      <button id="shareButton" class="family-badge hidden" type="button" aria-haspopup="dialog">
-        <i class="ph-bold ph-share-network"></i> リストを共有
+      <button id="shareButton" class="family-badge hidden" aria-label="リストを共有" type="button" aria-haspopup="dialog">
+        <i class="ph-bold ph-share-network" aria-hidden="true"></i><span class="share-button-label">リストを共有</span>
       </button>
     </div>
   </header>
@@ -452,31 +453,18 @@
 
 
 
-  <dialog id="deleteAccountDialog" class="share-dialog confirm-dialog" aria-labelledby="deleteAccountTitle">
-    <div class="share-content">
-      <h2 id="deleteAccountTitle" class="panel-title">アカウントを削除しますか？</h2>
-      <p class="share-instructions">この操作は取り消せません。アカウントと関連するデータが削除されます。</p>
-      <p id="deleteAccountMessage" class="share-message" role="alert"></p>
+  <dialog id="actionDialog" class="share-dialog action-dialog" aria-labelledby="actionDialogTitle" aria-describedby="actionDialogBody" data-i18n-ignore="true">
+    <div class="action-dialog-content">
+      <div class="action-dialog-symbol" aria-hidden="true"><i id="actionDialogIcon" class="ph ph-warning-circle"></i></div>
+      <h2 id="actionDialogTitle"></h2>
+      <p id="actionDialogBody"></p>
+      <p id="actionDialogError" role="alert" aria-live="assertive"></p>
       <div class="dialog-actions">
-        <button id="cancelDeleteAccount" class="btn btn-secondary" type="button">キャンセル</button>
-        <button id="confirmDeleteAccount" class="btn btn-danger" type="button">アカウントを削除</button>
+        <button id="actionDialogCancel" class="btn btn-secondary" type="button">キャンセル</button>
+        <button id="actionDialogSubmit" class="btn btn-danger" type="button"></button>
       </div>
     </div>
   </dialog>
-
-  <dialog id="leaveConfirmDialog" class="share-dialog" aria-labelledby="leaveConfirmTitle">
-    <div class="share-content">
-      <h2 id="leaveConfirmTitle" class="panel-title">リストから退出しますか？</h2>
-      <p class="share-instructions">退出すると、このリストが参加中のリストから削除されます。管理者の場合、残っているメンバーに管理者権限が移ります。</p>
-      <p id="leaveConfirmError" class="share-message" role="alert"></p>
-      <div class="dialog-actions">
-        <button id="cancelLeave" class="btn btn-secondary" type="button">キャンセル</button>
-        <button id="confirmLeave" class="btn btn-danger" type="button">退出する</button>
-      </div>
-    </div>
-  </dialog>
-
-
 
   <div id="navigationDialog" class="header-navigation" aria-labelledby="navigationTitle" aria-hidden="true" inert>
     <div class="share-content navigation-content">
@@ -530,6 +518,6 @@
       </div>
     </form>
   </dialog>
-  <script src="/js/dark-mode.js"></script>
+  <script src="/js/dark-mode.js?v=20261028-dialogs2"></script>
 </body>
 </html>

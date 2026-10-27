@@ -41,18 +41,31 @@ body.dark-mode { background: var(--bg) !important; color: var(--text) !important
 .dark-mode .btn-secondary { background: #263229 !important; color: #e8f1ea !important; border-color: #415044 !important; }
 .dark-mode .text-button { color: #9cdb91 !important; }
 .dark-mode .form input:focus, .dark-mode .form textarea:focus, .dark-mode .form select:focus { border-color: #76c56b !important; box-shadow: 0 0 0 3px rgba(118,197,107,.2) !important; }
+/* Header theme switch: a visible sun/moon selection with a sliding thumb. */
 .theme-toggle {
-  position: fixed; right: max(16px, env(safe-area-inset-right)); bottom: calc(16px + env(safe-area-inset-bottom)); z-index: 9999; width: 38px; height: 38px;
-  border: 1px solid #d7e2d9; border-radius: 50%; background: #fff;
-  color: #4d8f3d; cursor: pointer; font-size: 18px; display: grid; place-items: center;
+  position: relative; flex: 0 0 76px; width: 76px; height: 44px; padding: 4px;
+  display: grid; grid-template-columns: 1fr 1fr; align-items: center;
+  border: 1px solid #ffffff55; border-radius: 999px;
+  background: #174b2880; color: #e2f0e3; cursor: pointer;
+  isolation: isolate; -webkit-tap-highlight-color: transparent;
 }
-.theme-toggle:hover { background: #f1f7f2; }
-.dark-mode .theme-toggle { border-color: rgba(255,255,255,.25); background: rgba(255,255,255,.16); color: #fff; }
-.dark-mode .theme-toggle:hover { background: rgba(255,255,255,.28); }
-.theme-toggle .theme-icon { display: block; width: 20px; height: 20px; }
-
-/* Keep the toggle above navigation when a list is open. */
-.bottom-nav:not(.hidden) ~ .theme-toggle { bottom: calc(88px + env(safe-area-inset-bottom)); }
+.theme-toggle-thumb { position: absolute; inset: 4px auto 4px 4px; width: 32px; border-radius: 50%; background: #f4faee; box-shadow: 0 2px 5px #102d2440; transition: transform .2s ease, background .2s ease; z-index: -1; }
+.theme-toggle > span:not(.theme-toggle-thumb) { display: grid; place-items: center; color: #d8e8db; }
+.theme-toggle svg { width: 19px; height: 19px; }
+.theme-toggle[aria-checked="false"] .theme-toggle-sun { color: #526923; }
+.theme-toggle[aria-checked="true"] .theme-toggle-moon { color: #e6f3ff; }
+.theme-toggle[aria-checked="true"] .theme-toggle-thumb { transform: translateX(34px); background: #344b59; }
+.theme-toggle:hover { border-color: #ffffffaa; background: #123e2580; }
+.theme-toggle:focus-visible { outline: 3px solid #f0f8e7; outline-offset: 3px; }
+.dark-mode .theme-toggle { background: #162d24; border-color: #729080; }
+.dark-mode .theme-toggle:hover { background: #203a2e; border-color: #a1b9aa; }
+@media (prefers-reduced-motion: reduce) { .theme-toggle-thumb { transition: none; } }
+@media (max-width: 600px) {
+  .header-actions { gap: 6px; flex-shrink: 0; }
+  .header-actions .family-badge { width: 44px; height: 44px; padding: 0; justify-content: center; border-radius: 14px; }
+  .header-actions .family-badge i { font-size: 20px; }
+  .share-button-label { display: none; }
+}
 
 /* Component surfaces must override light gradients as well as background colors. */
 :root.dark-mode { --primary-light: #294431; --primary-dark: #a0df99; --background: #121713; }
@@ -98,3 +111,15 @@ body.dark-mode { background: var(--bg) !important; color: var(--text) !important
 .dark-mode .history-pagination .btn { background: #263229 !important; border-color: #536857 !important; color: #c2edb8 !important; }
 .dark-mode .history-pagination .btn:not(:disabled):hover { background: #324936 !important; border-color: #87bd7d !important; }
 .dark-mode .history-pagination .btn span { color: inherit; }
+
+/* Destructive actions use dark red surfaces, not light-mode pink or bright fills. */
+.dark-mode .btn-danger { background: #713638; color: #fff0ed; border: 1px solid #a15e60; box-shadow: none; }
+.dark-mode .btn-danger:not(:disabled):hover { background: #894447; }
+.dark-mode .kick-button, .dark-mode #deleteAccountButton { background: #352628; border: 1px solid #795052; color: #ffb4ad; }
+.dark-mode .kick-button:not(:disabled):hover, .dark-mode #deleteAccountButton:not(:disabled):hover { background: #4b3032; border-color: #ad7375; }
+.dark-mode .kick-button span { color: inherit; }
+.dark-mode .action-dialog-symbol { background: #294431; color: #b3e6ac; }
+.dark-mode .action-dialog[data-tone="danger"] .action-dialog-symbol { background: #482c2f; color: #ffb4ad; }
+.dark-mode #actionDialogError { color: #ffb4ad; }
+.dark-mode #actionDialogBody { color: #b8c6bc; }
+.dark-mode .action-dialog::backdrop { background: #050c09bf; }

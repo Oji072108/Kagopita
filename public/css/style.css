@@ -822,14 +822,50 @@ button {
 
 .kick-button {
   margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  flex-shrink: 0;
   min-height: 44px;
   padding: 8px 12px;
-  border: 0;
-  border-radius: 9px;
-  background: #ffebe8;
-  color: var(--danger);
-  font-size: 11px;
-  font-weight: 900;
+  border: 1px solid #e8baba;
+  border-radius: 12px;
+  background: #fff5f4;
+  color: #a93232;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.kick-button i { font-size: 18px; }
+.kick-button:hover { background: #ffe5e2; border-color: #cc8585; }
+.kick-button span { color: inherit; }
+.member-name { overflow-wrap: anywhere; }
+.member-row .feed-content { flex: 1 1 80px; }
+
+/* Confirmations share one responsive, keyboard-accessible dialog. */
+.action-dialog { width: min(420px, calc(100% - 32px)); margin: auto; background: var(--surface); }
+.action-dialog::backdrop { background: #101b16a8; backdrop-filter: blur(4px); }
+.action-dialog-content { padding: 26px; max-height: calc(100dvh - 48px); overflow-y: auto; box-sizing: border-box; }
+.action-dialog-symbol { width: 48px; height: 48px; display: grid; place-items: center; border-radius: 16px; background: #e7f3e7; color: #287432; margin-bottom: 18px; font-size: 26px; }
+.action-dialog[data-tone="danger"] .action-dialog-symbol { background: #ffedeb; color: #ac3434; }
+.action-dialog h2 { margin: 0 0 12px; font-size: 20px; line-height: 1.5; overflow-wrap: anywhere; }
+#actionDialogBody { margin: 0; color: #59695e; line-height: 1.8; font-size: 14px; white-space: pre-line; overflow-wrap: anywhere; }
+#actionDialogError { color: #ad3232; font-size: 13px; line-height: 1.6; overflow-wrap: anywhere; }
+#actionDialogError:empty { display: none; }
+.action-dialog .dialog-actions { margin-top: 24px; }
+.action-dialog .btn { min-height: 48px; padding: 12px; font-size: 13px; border-radius: 12px; }
+.action-dialog .btn-danger { background: #b63d40; color: #fff; }
+.action-dialog .btn-danger:not(:disabled):hover { background: #9d3034; }
+.action-dialog .dialog-actions:has(button[hidden]) { grid-template-columns: 1fr; }
+.action-dialog [hidden] { display: none; }
+.kick-button:focus-visible, .action-dialog .btn:focus-visible { outline: 3px solid var(--primary); outline-offset: 3px; }
+#deleteAccountButton { background: #fff5f4; color: #a93232; border: 1px solid #e8baba; box-shadow: none; }
+#deleteAccountButton:hover { background: #ffe5e2; border-color: #cc8585; }
+@media (max-width: 360px) {
+  .action-dialog-content { padding: 20px; }
+  .action-dialog .dialog-actions { grid-template-columns: 1fr; }
+  .action-dialog .dialog-actions .btn:last-child { grid-row: 1; }
 }
 
 .form {
@@ -901,6 +937,7 @@ button {
 .welcome-form-slide { animation: welcomeSlide .28s cubic-bezier(.2,.8,.2,1) both; }
 
 .avatar-picker {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 12px;
@@ -915,7 +952,7 @@ button {
 .avatar-picker-copy small { color:var(--muted); font-size:11px; }
 .avatar-picker-button { cursor:pointer; padding:9px 13px; border-radius:10px; background:var(--primary); color:white; font-size:12px; font-weight:900; }
 .avatar-picker-button.disabled { cursor:not-allowed; opacity:.5; }
-.avatar-picker input { position:absolute; width:1px; height:1px; opacity:0; pointer-events:none; }
+.avatar-picker input { position:absolute; left:0; top:0; width:1px; height:1px; min-height:0; padding:0; border:0; clip-path:inset(50%); opacity:0; pointer-events:none; }
 
 @keyframes welcomeSlide { from { opacity:0; transform:translateX(14px); } to { opacity:1; transform:translateX(0); } }
 @keyframes modeTabPop { from { transform:scale(.96); } to { transform:scale(1); } }
