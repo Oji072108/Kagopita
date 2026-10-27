@@ -26,24 +26,26 @@
   <meta name="twitter:image" content="__PUBLIC_URL__/share-preview.png">
   <title>カゴピタ - みんなのお買い物リスト</title>
 
-  <link rel="stylesheet" href="/css/style.css?v=20261027-shared-layout1">
+  <link rel="stylesheet" href="/css/style.css?v=20261028-terms4">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@400;500;700;900&display=swap" rel="stylesheet">
   <script src="https://unpkg.com/@phosphor-icons/web"></script>
   <script src="/vendor/qrcode.min.js" defer></script>
-  <script src="/js/i18n.js?v=20261027-shared-layout1" defer></script>
-  <script src="/js/shopping-language.js?v=20261027-shared-layout1" defer></script>
-  <script src="/js/quantity.js?v=20261027-shared-layout1" defer></script>
-  <script src="/js/category.js?v=20261027-shared-layout1" defer></script>
-  <script src="/js/app.js?v=20261027-shared-layout1" defer></script>
-  <script src="/js/custom-select.js?v=20261027-shared-layout1" defer></script>
-  <link rel="stylesheet" href="/css/dark-mode.css?v=20261027-shared-layout1">
+  <script src="/js/i18n.js?v=20261028-terms4" defer></script>
+  <script src="/js/shopping-language.js?v=20261028-terms4" defer></script>
+  <script src="/js/quantity.js?v=20261028-terms4" defer></script>
+  <script src="/js/category.js?v=20261028-terms4" defer></script>
+  <script src="/js/dialogs.js?v=20261028-terms4" defer></script>
+  <script src="/js/terms.js?v=20261028-terms4" defer></script>
+  <script src="/js/app.js?v=20261028-terms4" defer></script>
+  <script src="/js/custom-select.js?v=20261028-terms4" defer></script>
+  <link rel="stylesheet" href="/css/dark-mode.css?v=20261028-terms4">
 </head>
 <body>
   <header class="header">
-    <button id="nav-menu" class="header-menu" type="button" aria-label="メニューを開く" aria-expanded="false" aria-controls="navigationDialog" onclick="openNavigationMenu()"><span class="hamburger-icon" aria-hidden="true"><span></span><span></span><span></span></span></button>
+    <button id="nav-menu" class="header-menu hidden" type="button" aria-label="メニューを開く" aria-expanded="false" aria-controls="navigationDialog" onclick="openNavigationMenu()"><span class="hamburger-icon" aria-hidden="true"><span></span><span></span><span></span></span></button>
     <a class="brand" href="/">
-      <span class="brand-icon"><img class="logo-light" src="/logo-light.svg?v=20261027-shared-layout1" alt="" width="44" height="44"><img class="logo-dark" src="/logo-dark.svg?v=20261027-shared-layout1" alt="" width="44" height="44"></span>
+      <span class="brand-icon"><img class="logo-light" src="/logo-light.svg?v=20261028-terms4" alt="" width="44" height="44"><img class="logo-dark" src="/logo-dark.svg?v=20261028-terms4" alt="" width="44" height="44"></span>
       <span>
         <strong>カゴピタ</strong>
         <small>みんなで使えるお買い物リスト</small>
@@ -51,13 +53,14 @@
     </a>
 
     <div class="header-actions">
-      <button id="shareButton" class="family-badge hidden" type="button" aria-haspopup="dialog">
-        <i class="ph-bold ph-share-network"></i> リストを共有
+      <button id="shareButton" class="family-badge hidden" aria-label="リストを共有" type="button" aria-haspopup="dialog">
+        <i class="ph-bold ph-share-network" aria-hidden="true"></i><span class="share-button-label">リストを共有</span>
       </button>
     </div>
   </header>
 
   <main class="main">
+    <aside id="termsUpdateNotice" class="terms-update hidden" role="status" aria-live="polite"><div><strong>利用規約を更新しました</strong><p id="termsUpdateSummary" data-i18n-ignore="true"></p></div><button id="termsUpdateRead" class="btn btn-secondary" type="button">変更内容を確認</button><button id="termsUpdateDismiss" class="text-button" type="button">確認済みにする</button></aside>
     <p id="authNotice" class="share-message hidden" role="status" aria-live="polite"></p>
     <section id="noChannels" class="panel hidden">
       <h2 id="noChannelsTitle" class="panel-title">共有リストがありません</h2>
@@ -77,6 +80,12 @@
       <form id="welcomeAccountForm" class="form hidden" novalidate>
         <label for="welcomeAccountName">自分の表示名</label>
         <input id="welcomeAccountName" maxlength="30" required autocomplete="nickname" placeholder="例：自分の名前">
+        <div class="terms-consent" data-terms-consent="guest">
+          <button class="text-button terms-open" type="button">利用規約を読む</button>
+          <p class="terms-read-hint">最後まで確認すると、同意を選択できます。</p>
+          <label class="terms-checkbox"><input id="guestTermsAccepted" type="checkbox" disabled><span>利用規約を読み、同意します</span></label>
+          <p class="terms-error" role="alert"></p>
+        </div>
         <button class="btn btn-primary" type="submit">ゲストで始める</button>
         <p id="welcomeAccountMessage" class="share-message" role="alert"></p>
       </form>
@@ -91,6 +100,12 @@
         <input id="welcomeRegisterEmail" type="email" maxlength="254" required autocomplete="email">
         <label for="welcomeRegisterPassword">パスワード（8文字以上）</label>
         <input id="welcomeRegisterPassword" type="password" minlength="8" maxlength="128" required autocomplete="new-password">
+        <div class="terms-consent" data-terms-consent="register">
+          <button class="text-button terms-open" type="button">利用規約を読む</button>
+          <p class="terms-read-hint">最後まで確認すると、同意を選択できます。</p>
+          <label class="terms-checkbox"><input id="registerTermsAccepted" type="checkbox" disabled><span>利用規約を読み、同意します</span></label>
+          <p class="terms-error" role="alert"></p>
+        </div>
         <button class="btn btn-primary" type="submit">アカウントを作成</button>
         <p id="welcomeRegisterMessage" class="share-message" role="alert"></p>
         <p class="welcome-login-prompt">アカウントをお持ちですか？ <button id="welcomeRegisterLogin" class="text-button" type="button">ログイン</button></p>
@@ -136,6 +151,12 @@
         <input id="welcomeJoinName" maxlength="30" required autocomplete="nickname" placeholder="例：お母さん">
         <label for="welcomeInviteCode">受け取った招待番号（半角英数字8文字）</label>
         <input id="welcomeInviteCode" maxlength="8" minlength="8" required autocomplete="off" placeholder="招待番号を入力">
+        <div class="terms-consent" data-terms-consent="join">
+          <button class="text-button terms-open" type="button">利用規約を読む</button>
+          <p class="terms-read-hint">最後まで確認すると、同意を選択できます。</p>
+          <label class="terms-checkbox"><input id="joinTermsAccepted" type="checkbox" disabled><span>利用規約を読み、同意します</span></label>
+          <p class="terms-error" role="alert"></p>
+        </div>
         <button class="btn btn-primary" type="submit">招待番号で参加</button>
         <p id="welcomeJoinMessage" class="share-message" role="alert"></p>
       </form>
@@ -346,6 +367,12 @@
           <input id="accountEmail" type="email" maxlength="254" required autocomplete="email">
           <label for="accountPassword">パスワード（8文字以上）</label>
           <input id="accountPassword" type="password" minlength="8" maxlength="128" required autocomplete="new-password">
+        <div class="terms-consent" data-terms-consent="credentials">
+          <button class="text-button terms-open" type="button">利用規約を読む</button>
+          <p class="terms-read-hint">最後まで確認すると、同意を選択できます。</p>
+          <label class="terms-checkbox"><input id="credentialsTermsAccepted" type="checkbox" disabled><span>利用規約を読み、同意します</span></label>
+          <p class="terms-error" role="alert"></p>
+        </div>
           <button class="btn btn-primary" type="submit">アカウントを作成</button>
           <p id="credentialsMessage" class="share-message" role="alert"></p>
         </form>
@@ -452,44 +479,41 @@
 
 
 
-  <dialog id="deleteAccountDialog" class="share-dialog confirm-dialog" aria-labelledby="deleteAccountTitle">
-    <div class="share-content">
-      <h2 id="deleteAccountTitle" class="panel-title">アカウントを削除しますか？</h2>
-      <p class="share-instructions">この操作は取り消せません。アカウントと関連するデータが削除されます。</p>
-      <p id="deleteAccountMessage" class="share-message" role="alert"></p>
+  <dialog id="termsDialog" class="share-dialog terms-dialog" aria-labelledby="termsTitle">
+    <div class="terms-dialog-heading" data-i18n-ignore="true"><h2 id="termsTitle">利用規約</h2></div>
+    <div id="termsDocument" class="terms-document" tabindex="0" aria-label="利用規約の本文" data-i18n-ignore="true"></div>
+    <p id="termsReadStatus" class="terms-read-status" role="status"></p>
+    <div class="dialog-actions"><button id="termsClose" class="btn btn-secondary" type="button">戻る</button><button id="termsReadDone" class="btn btn-primary" type="button" disabled>確認して戻る</button></div>
+  </dialog>
+
+  <dialog id="actionDialog" class="share-dialog action-dialog" aria-labelledby="actionDialogTitle" aria-describedby="actionDialogBody" data-i18n-ignore="true">
+    <div class="action-dialog-content">
+      <div class="action-dialog-symbol" aria-hidden="true"><i id="actionDialogIcon" class="ph ph-warning-circle"></i></div>
+      <h2 id="actionDialogTitle"></h2>
+      <p id="actionDialogBody"></p>
+      <p id="actionDialogError" role="alert" aria-live="assertive"></p>
       <div class="dialog-actions">
-        <button id="cancelDeleteAccount" class="btn btn-secondary" type="button">キャンセル</button>
-        <button id="confirmDeleteAccount" class="btn btn-danger" type="button">アカウントを削除</button>
+        <button id="actionDialogCancel" class="btn btn-secondary" type="button">キャンセル</button>
+        <button id="actionDialogSubmit" class="btn btn-danger" type="button"></button>
       </div>
     </div>
   </dialog>
-
-  <dialog id="leaveConfirmDialog" class="share-dialog" aria-labelledby="leaveConfirmTitle">
-    <div class="share-content">
-      <h2 id="leaveConfirmTitle" class="panel-title">リストから退出しますか？</h2>
-      <p class="share-instructions">退出すると、このリストが参加中のリストから削除されます。管理者の場合、残っているメンバーに管理者権限が移ります。</p>
-      <p id="leaveConfirmError" class="share-message" role="alert"></p>
-      <div class="dialog-actions">
-        <button id="cancelLeave" class="btn btn-secondary" type="button">キャンセル</button>
-        <button id="confirmLeave" class="btn btn-danger" type="button">退出する</button>
-      </div>
-    </div>
-  </dialog>
-
-
 
   <div id="navigationDialog" class="header-navigation" aria-labelledby="navigationTitle" aria-hidden="true" inert>
     <div class="share-content navigation-content">
       <div class="dialog-title-row"><h2 id="navigationTitle" class="panel-title">メニュー</h2></div>
       <p id="currentListName" class="share-instructions"></p>
       <div class="menu-actions">
-        <button class="btn btn-secondary" data-menu-tab="list" onclick="runNavigationAction('list')">買うものリスト</button>
-        <button class="btn btn-secondary" data-menu-tab="add" onclick="runNavigationAction('add')">商品を追加</button>
-        <button id="showChannelsButton" data-menu-tab="channels" class="btn btn-secondary" type="button">リストを切り替える</button>
-        <button id="menu-share" class="btn btn-secondary" onclick="runNavigationAction('share')">このリストを共有</button>
-        <button id="nav-members" class="btn btn-secondary" data-menu-tab="members" onclick="runNavigationAction('members')">メンバー</button>
-        <button class="btn btn-secondary" type="button" data-menu-tab="account" onclick="runNavigationAction('account')">アカウント</button>
-        <button id="nav-complete" class="btn btn-secondary" data-menu-tab="complete" onclick="runNavigationAction('complete')">買い物を完了</button>
+        <p class="navigation-group-label">お買い物</p>
+        <button class="btn btn-secondary" data-menu-tab="list" onclick="runNavigationAction('list')"><i class="ph-bold ph-list-checks" aria-hidden="true"></i><span>買うものリスト</span></button>
+        <button class="btn btn-secondary" data-menu-tab="add" onclick="runNavigationAction('add')"><i class="ph-bold ph-plus-circle" aria-hidden="true"></i><span>商品を追加</span></button>
+        <p class="navigation-group-label">リスト・設定</p>
+        <button id="showChannelsButton" data-menu-tab="channels" class="btn btn-secondary" type="button"><i class="ph-bold ph-stack" aria-hidden="true"></i><span>リストを切り替える</span></button>
+        <button id="menu-share" class="btn btn-secondary" onclick="runNavigationAction('share')"><i class="ph-bold ph-share-network" aria-hidden="true"></i><span>このリストを共有</span></button>
+        <button id="nav-members" class="btn btn-secondary" data-menu-tab="members" onclick="runNavigationAction('members')"><i class="ph-bold ph-users" aria-hidden="true"></i><span>メンバー</span></button>
+        <button class="btn btn-secondary" type="button" data-menu-tab="account" onclick="runNavigationAction('account')"><i class="ph-bold ph-user-circle" aria-hidden="true"></i><span>アカウント</span></button>
+        <div class="navigation-divider" aria-hidden="true"></div>
+        <button id="nav-complete" class="btn btn-secondary" data-menu-tab="complete" onclick="runNavigationAction('complete')"><i class="ph-bold ph-check-circle" aria-hidden="true"></i><span>買い物を完了</span></button>
       </div>
     </div>
   </div>
@@ -530,6 +554,6 @@
       </div>
     </form>
   </dialog>
-  <script src="/js/dark-mode.js"></script>
+  <script src="/js/dark-mode.js?v=20261028-terms4"></script>
 </body>
 </html>

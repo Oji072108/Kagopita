@@ -10,6 +10,7 @@ const { broadcast, subscribe } = require('./realtime');
 const database = require('./database');
 const { createChannel, db } = database;
 const scrypt = promisify(crypto.scrypt);
+const { readTerms, requireTermsAcceptance } = require('./terms');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -50,6 +51,14 @@ app.get(['/', '/index.html'], (req, res) => {
   res.type('html').send(html.replaceAll('__PUBLIC_URL__', safeUrl));
 });
 app.use(express.static(path.join(__dirname, 'public')));
+
+app.get('/api/terms', (req, res) => {
+  const terms = readTerms();
+  const user = database.getSession(readSessionToken(req));
+  const seen = user && db.prepare('SELECT terms_seen_version FROM users WHERE id = ?').get(user.id);
+  res.set('Cache-Control', 'no-store').json({ ...terms, notify: Boolean(user && seen?.terms_seen_version !== terms.version) });
+});
+
 
 function readSessionToken(req) {
   const cookie = (req.headers.cookie || '')
@@ -353,7 +362,10 @@ function requireChannelAdmin(req, res, next) {
   next();
 }
 
-app.post('/api/session', (req, res) => {
+app.post('/api/session', (req, res, next) => {
+  if (database.getSession(readSessionToken(req))) return next();
+  return requireTermsAcceptance(req, res, next);
+}, (req, res) => {
   const invite = database.getInvite(req.body?.invite);
   const username = typeof req.body?.username === 'string' ? req.body.username.trim() : '';
   if (!invite) {
@@ -371,8 +383,8 @@ app.post('/api/session', (req, res) => {
   let session = null;
   const join = () => database.transaction(() => {
     if (!existingUser) {
-      db.prepare('INSERT INTO users (id, username, created_at) VALUES (?, ?, ?)')
-        .run(user.id, username, database.now());
+      db.prepare('INSERT INTO users (id, username, created_at, terms_seen_version, terms_accepted_version, terms_accepted_at) VALUES (?, ?, ?, ?, ?, ?)')
+        .run(user.id, username, database.now(), req.acceptedTermsVersion, req.acceptedTermsVersion, database.now());
       session = database.createSession(user.id);
     }
 
@@ -411,15 +423,15 @@ app.post('/api/session', (req, res) => {
   });
 });
 
-app.post('/api/account', (req, res) => {
+app.post('/api/account', requireTermsAcceptance, (req, res) => {
   const username = typeof req.body?.username === 'string' ? req.body.username.trim() : '';
   if (!username || username.length > 30) {
     return res.status(400).json({ error: '名前は1〜30文字で入力してください。' });
   }
   const userId = require('crypto').randomUUID();
   const createAccount = () => database.transaction(() => {
-    db.prepare('INSERT INTO users (id, username, created_at) VALUES (?, ?, ?)')
-      .run(userId, username, database.now());
+    db.prepare('INSERT INTO users (id, username, created_at, terms_seen_version, terms_accepted_version, terms_accepted_at) VALUES (?, ?, ?, ?, ?, ?)')
+      .run(userId, username, database.now(), req.acceptedTermsVersion, req.acceptedTermsVersion, database.now());
     return database.createSession(userId);
   });
   const session = createAccount();
@@ -427,7 +439,7 @@ app.post('/api/account', (req, res) => {
   res.status(201).json({ user: { id: userId, username } });
 });
 
-app.post('/api/register', async (req, res, next) => {
+app.post('/api/register', requireTermsAcceptance, async (req, res, next) => {
   const username = typeof req.body?.username === 'string' ? req.body.username.trim() : '';
   const email = normalizeEmail(req.body?.email);
   const password = req.body?.password;
@@ -453,9 +465,9 @@ app.post('/api/register', async (req, res, next) => {
     const { salt, hash } = await hashPassword(password);
     database.transaction(() => {
       db.prepare(`
-        INSERT INTO users (id, username, email, password_salt, password_hash, email_verified, created_at)
-        VALUES (?, ?, ?, ?, ?, 0, ?)
-      `).run(userId, username, email, salt, hash, database.now());
+        INSERT INTO users (id, username, email, password_salt, password_hash, email_verified, created_at, terms_accepted_version, terms_accepted_at, terms_seen_version)
+        VALUES (?, ?, ?, ?, ?, 0, ?, ?, ?, ?)
+      `).run(userId, username, email, salt, hash, database.now(), req.acceptedTermsVersion, database.now(), req.acceptedTermsVersion);
       token = createVerificationToken(userId);
     });
     await sendVerificationEmail(email, token);
@@ -652,7 +664,7 @@ app.use('/api', (req, res, next) => {
   next();
 });
 
-app.post('/api/account/credentials', async (req, res, next) => {
+app.post('/api/account/credentials', requireTermsAcceptance, async (req, res, next) => {
   const email = normalizeEmail(req.body?.email);
   const password = req.body?.password;
   if (!isValidEmail(email)) {
@@ -683,6 +695,8 @@ app.post('/api/account/credentials', async (req, res, next) => {
       token = createVerificationToken(req.user.id);
     });
     await sendVerificationEmail(email, token);
+    db.prepare('UPDATE users SET terms_accepted_version = ?, terms_accepted_at = ?, terms_seen_version = ? WHERE id = ?')
+      .run(req.acceptedTermsVersion, database.now(), req.acceptedTermsVersion, req.user.id);
     res.json({ email, emailVerified: false });
   } catch (error) {
     database.transaction(() => {
@@ -747,6 +761,13 @@ app.delete('/api/account', (req, res) => {
   });
   res.clearCookie(cookieName, { httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: 'strict', path: '/' });
   res.json({ message: 'アカウントを削除しました。' });
+});
+
+app.post('/api/terms/seen', (req, res) => {
+  const terms = readTerms();
+  if (req.body?.version !== terms.version) return res.status(409).json({ error: '規約が更新されました。もう一度確認してください。' });
+  db.prepare('UPDATE users SET terms_seen_version = ? WHERE id = ?').run(terms.version, req.user.id);
+  res.json({ ok: true });
 });
 
 app.get('/api/me', (req, res) => {

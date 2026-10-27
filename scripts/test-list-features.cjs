@@ -19,6 +19,7 @@ const {DatabaseSync} = require('node:sqlite');
  try {
   await start();
   async function request(cookie,url,method='GET',body,expected=200){
+   if (url === '/api/account' && method === 'POST') body = {...body, termsAccepted: true, termsVersion: require('../terms.json').version};
    const response=await fetch(base+url,{method,headers:{Cookie:cookie||'','Content-Type':'application/json'},body:body===undefined?undefined:JSON.stringify(body)});
    const data=await response.json();assert.equal(response.status,expected,`${method} ${url}: ${JSON.stringify(data)}`);
    return {data,cookie:response.headers.get('set-cookie')?.split(';')[0]};
