@@ -226,6 +226,7 @@ function updateChannelControls() {
   $('nav-list').classList.toggle('hidden', !currentChannelId);
   document.querySelector('.bottom-nav-links').classList.toggle('without-list', !currentChannelId);
   $('nav-add').disabled = !currentChannelId;
+  $('nav-add').classList.toggle('hidden', !currentChannelId);
   $('noChannels').classList.toggle('hidden', !currentUser || channels.length > 0 || ['channels', 'account'].includes(currentTab));
   $('channelViews').classList.toggle('hidden', !currentChannelId || ['channels', 'account'].includes(currentTab));
   $('nav-account').classList.toggle('hidden', !currentUser);
