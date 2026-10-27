@@ -967,13 +967,14 @@ app.get('/api/events', (req, res) => {
   res.set({
     'Content-Type': 'text/event-stream',
     'Cache-Control': 'no-cache, no-transform',
+    'X-Accel-Buffering': 'no',
     Connection: 'keep-alive'
   });
   res.flushHeaders();
   res.write('retry: 3000\n\n');
   const removeClient = subscribe(res, req.user.id);
   const heartbeat = setInterval(() => res.write(': keep-alive\n\n'), 25000);
-  req.on('close', () => {
+  res.on('close', () => {
     clearInterval(heartbeat);
     removeClient();
   });
