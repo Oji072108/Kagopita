@@ -1421,12 +1421,14 @@ button {
 .shopping-item { gap: 10px; }
 .check-button, .favorite-toggle, .delete-button { min-width: 40px; min-height: 44px; }
 
-/* Stable five-slot navigation: the Add action never moves with role or preferences. */
+/* Keep five slots with a list; compact the bar when list-dependent tabs are hidden. */
 .bottom-nav-links, .bottom-nav-links.without-complete, .bottom-nav-links.without-account { grid-template-columns: repeat(5, minmax(0, 1fr)); }
 #nav-add { grid-column: 3; grid-row: 1; color: var(--primary); }
 #nav-add i { background: var(--primary); color: white; border-radius: 50%; padding: 7px; font-size: 26px; }
 #shortcut-right { grid-column: 4; grid-row: 1; }
 #nav-account { grid-column: 5; grid-row: 1; }
+.bottom-nav-links.without-list { display: flex; }
+.bottom-nav-links.without-list > .nav-item { flex: 1; }
 .nav-item:disabled { opacity: .4; }
 .navigation-content { gap: 16px; }
 .menu-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
