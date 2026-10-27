@@ -133,3 +133,37 @@ SQLiteのバックアップを作成する場合は、次のいずれかの方�
 - メールアドレスとパスワードの必須入力チェックを追加
 - 未入力の項目を赤く強調し、入力内容に応じたエラーメッセージを表示
 - メールアドレスの形式を検証し、不正な形式を受け付けないように改善
+
+
+### Japanese quantity suggestions
+
+The Add and Edit forms accept number-only quantities and suggest Japanese counters
+from common item names (for example トマト → 個, にんじん → 本, 箸 → 膳).
+`public/js/quantity.js` contains ordered offline rules; packaging words take priority
+and unknown products fall back to 個. These are suggestions, not grammatical or
+packaging guarantees: enter a free-form quantity when a specific unit is needed. Counters are automatic; no unit picker is shown.
+Existing explicit quantities are never rewritten just because a name changes.
+
+Run `node scripts/test-quantity.cjs` for rule checks. With Playwright installed in a
+separate test environment, run `NODE_PATH=<test-env>/node_modules node scripts/test-quantity-ui.cjs`
+against the running preview (`KAGOPITA_TEST_URL` overrides localhost:3001).
+The UI check loads real assets and mocks API data/writes, so no live list is changed.
+
+### Item details and list management
+
+- Edit an item using its pencil button. Quantity counters remain automatic.
+- Add/Edit → **詳細（メモ・価格・繰り返し）** holds optional notes, total price for that item in whole yen, and daily/weekly/monthly recurrence.
+- Repeating items return to unchecked after the chosen interval following purchase. The same row is reused, so missed intervals do not create duplicate items. Monthly repeats clamp to the last valid day of the month. Deleted items and archived lists do not renew.
+- **共有リスト** provides **複製** and admin-only **アーカイブ**. Copies contain non-deleted items (including details and recurrence), reset purchase status, and belong only to the copying user; assignments, members, invites, activity, and deleted items are not copied.
+- Archived lists remain under **アーカイブしたリスト** and can be unarchived by their admin. Item mutations are blocked until unarchived; duplicates can still be made.
+- **削除した商品 → 復元** restores soft-deleted items, including their details, as unchecked. Deletions made before this feature cannot be recovered. The existing **完了して削除** action still permanently deletes an entire list.
+- Schema changes are additive and run at startup. Back up the SQLite database before updating an existing deployment.
+
+Checks: `node scripts/test-item-management.cjs`, `node scripts/test-quantity.cjs`, and `node scripts/test-list-features.cjs`. For real mobile browser flows, set `KAGOPITA_BROWSER_TEST=1`, make `playwright-core` available, and optionally set `PW_EXECUTABLE_PATH` to your Chromium executable when running the last command. All feature tests use temporary databases and accounts.
+
+
+### Shared-list languages
+
+Each browser keeps its own Japanese, English, Korean, Simplified Chinese, or Spanish preference. `public/js/shopping-language.js` provides an offline, alias-based vocabulary for common shopping names, feeding both category and quantity inference. Names, favorites, deleted items, and known counters are localized for display; saved names/quantities, edits, brands, and notes retain their original text. Unknown words are not machine-translated. Extend the five-column vocabulary for additional terms; no external translation service or credential is used.
+
+Verify with `node scripts/test-shopping-language.cjs` and the Playwright `scripts/test-shopping-language-ui.cjs` (uses API fixtures, never live list writes).
