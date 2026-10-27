@@ -249,6 +249,7 @@ function updateChannelControls() {
 }
 
 function resetSignedOutState() {
+  window.KagopitaLiveUpdates.stop();
   ++channelSelectionVersion;
   currentUser = null;
   currentChannelId = null;
@@ -276,6 +277,15 @@ async function refreshChannels(preferredId = currentChannelId) {
     $('categoriesContainer').replaceChildren();
     $('familyFeedContainer').replaceChildren();
   }
+  window.KagopitaLiveUpdates.start(async () => {
+    if (!currentUser) return;
+    await refreshChannels();
+    if (!currentChannelId) return;
+    if (currentTab === 'members') await loadMembers();
+    if (currentTab === 'add') await loadFavorites();
+  }, data => {
+    if (data.userId === currentUser?.id) KagopitaDialogs.notice('このリストから退出させられました。');
+  });
 }
 
 async function selectChannel(channelId) {
@@ -290,6 +300,7 @@ async function selectChannel(channelId) {
 }
 
 let shoppingData = null;
+let shoppingRequestId = 0;
 localizationReady = true;
 let shoppingMembers = [];
 let filterChannelId = null;
@@ -358,10 +369,11 @@ $('clearFilters').addEventListener('click', () => {
 
 async function loadShoppingList() {
   if (!currentChannelId) return false;
+  const requestId = ++shoppingRequestId;
+  const channelId = currentChannelId;
   try {
-    const channelId = currentChannelId;
     const [data, { members }] = await Promise.all([api(channelUrl('/shopping-list')), api(channelUrl('/members'))]);
-    if (channelId !== currentChannelId) return false;
+    if (requestId !== shoppingRequestId || channelId !== currentChannelId) return false;
     if (filterChannelId !== channelId) {
       $('itemSearch').value = ''; $('categoryFilter').value = ''; $('assignmentFilter').value = '';
       $('searchDetails').open = false;
@@ -383,6 +395,7 @@ async function loadShoppingList() {
     renderDeletedItems(data.deletedItems || []);
     return true;
   } catch (error) {
+    if (requestId !== shoppingRequestId || channelId !== currentChannelId) return false;
     console.error(error);
     $('categoriesContainer').textContent = error.message;
     return false;
@@ -1858,26 +1871,6 @@ async function startApp() {
     return;
   }
 
-  const events = new EventSource('/api/events');
-  events.addEventListener('update', event => {
-    if (JSON.parse(event.data).channelId === currentChannelId) {
-      refreshChannels(currentChannelId);
-      if (currentTab === 'members') loadMembers();
-      if (currentTab === 'add') loadFavorites();
-    }
-  });
-  events.addEventListener('membership-removed', async event => {
-    const data = JSON.parse(event.data);
-    if (data.userId === currentUser?.id) {
-      KagopitaDialogs.notice('このリストから退出させられました。');
-      await refreshChannels(null);
-      return;
-    }
-    await refreshChannels();
-  });
-  events.addEventListener('channel-completed', () => refreshChannels(null));
-  events.addEventListener('channels', () => refreshChannels());
-  events.onerror = error => console.error('Live updates disconnected; the browser will retry.', error);
 }
 
 window.addEventListener('hashchange', async () => {
