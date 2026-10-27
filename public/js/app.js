@@ -190,21 +190,24 @@ async function acceptInviteFromUrl() {
     };
     const submit = async event => {
       event.preventDefault();
+      if (form.dataset.termsSubmitting === 'true' || !window.KagopitaTerms.requireAcceptance('invite')) return;
       const button = form.querySelector('[type="submit"]');
+      form.dataset.termsSubmitting = 'true';
       button.disabled = true;
       message.textContent = '';
       try {
         const result = await api('/api/session', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ invite, username: $('joinName').value.trim() })
+          body: JSON.stringify({ invite, username: $('joinName').value.trim(), ...window.KagopitaTerms.acceptance('invite') })
         });
         window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}`);
         finish(result.channelId);
       } catch (error) {
         message.textContent = error.message;
       } finally {
-        button.disabled = false;
+        delete form.dataset.termsSubmitting;
+        window.KagopitaTerms.sync();
       }
     };
     form.addEventListener('submit', submit);

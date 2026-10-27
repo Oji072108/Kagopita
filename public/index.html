@@ -37,7 +37,7 @@
   <script src="/js/category.js?v=20261028-terms4" defer></script>
   <script src="/js/dialogs.js?v=20261028-terms4" defer></script>
   <script src="/js/terms.js?v=20261028-terms4" defer></script>
-  <script src="/js/app.js?v=20261028-empty-nav1" defer></script>
+  <script src="/js/app.js?v=20261028-invite-terms1" defer></script>
   <script src="/js/custom-select.js?v=20261028-terms4" defer></script>
   <link rel="stylesheet" href="/css/dark-mode.css?v=20261028-terms4">
 </head>
@@ -470,8 +470,14 @@
       <form id="joinForm" class="form" novalidate>
         <label for="joinName">名前</label>
         <input id="joinName" maxlength="30" required autocomplete="nickname" placeholder="例：お母さん">
+        <div class="terms-consent" data-terms-consent="invite">
+          <button class="text-button terms-open" type="button">利用規約を読む</button>
+          <p class="terms-read-hint">最後まで確認すると、同意を選択できます。</p>
+          <label class="terms-checkbox"><input id="inviteTermsAccepted" type="checkbox" disabled><span>利用規約を読み、同意します</span></label>
+          <p class="terms-error" role="alert"></p>
+        </div>
         <p id="joinMessage" class="share-message" role="alert"></p>
-        <button class="btn btn-primary" type="submit">参加する</button>
+        <button class="btn btn-primary" type="submit" disabled>参加する</button>
         <button id="cancelJoin" class="btn btn-secondary" type="button">キャンセル</button>
       </form>
     </div>
