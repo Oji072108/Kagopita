@@ -72,3 +72,12 @@
   .notification-bell { transition:none; }
   .notification-bell[aria-expanded="true"] > i { animation:none; }
 }
+
+.push-controls { display:flex; flex-wrap:wrap; gap:12px; }
+.push-controls .btn { max-width:100%; white-space:normal; overflow-wrap:anywhere; }
+.push-controls [hidden], #pushSettings[hidden] { display:none !important; }
+
+#pushPermissionHelp[hidden], #pushMenuButton[hidden] { display:none !important; }
+#pushPermissionHelp { margin:12px 0; overflow-wrap:anywhere; }
+#pushPermissionHelp summary { cursor:pointer; padding-block:10px; }
+#pushPermissionHelp p { font-size:13px; line-height:1.6; }

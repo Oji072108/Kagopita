@@ -668,6 +668,8 @@ app.use('/api', (req, res, next) => {
   next();
 });
 
+app.use('/api/push', require('./push').routes(readSessionToken));
+
 app.post('/api/account/credentials', requireTermsAcceptance, async (req, res, next) => {
   const email = normalizeEmail(req.body?.email);
   const password = req.body?.password;
@@ -1042,6 +1044,8 @@ app.use((error, req, res, next) => {
   }
   res.status(500).json({ error: 'サーバー内部でエラーが発生しました。' });
 });
+
+require('./push').start();
 
 app.listen(PORT, () => {
   const publicUrl = (process.env.PUBLIC_URL || `http://localhost:${PORT}`).replace(/\/+$/, '');
