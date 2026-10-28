@@ -1,5 +1,21 @@
 /* Canonical Japanese keys, translated consistently for static and rebuilt controls. */
 window.kagopitaLocaleRows = [
+["オーナー", "Owner", "소유자", "所有者", "Propietario"],
+["編集者", "Editor", "편집자", "编辑者", "Editor"],
+["閲覧者", "Viewer", "열람자", "查看者", "Lector"],
+["権限", "Role", "권한", "权限", "Rol"],
+["オーナーを変更しますか？", "Transfer ownership?", "소유권을 이전할까요?", "转让所有权？", "¿Transferir la propiedad?"],
+["変更すると自分は編集者になります。", "You will become an editor after transferring ownership.", "이전하면 편집자가 됩니다.", "转让后你将成为编辑者。", "Pasarás a ser editor tras transferir la propiedad."],
+["変更する", "Change", "변경", "更改", "Cambiar"],
+["オーナーはメンバー管理、編集者は商品の編集、閲覧者はチェックのみできます。", "Owners manage members; editors manage items; viewers can only check items.", "소유자는 멤버를 관리하고, 편집자는 항목을 편집하며, 열람자는 체크만 할 수 있습니다.", "所有者管理成员，编辑者编辑商品，查看者只能勾选商品。", "Los propietarios gestionan miembros; los editores gestionan artículos; los lectores solo pueden marcarlos."],
+["通知", "Notifications", "알림", "通知", "Notificaciones"],
+["すべて既読にする", "Mark all as read", "모두 읽음으로 표시", "全部标为已读", "Marcar todo como leído"],
+["通知はまだありません。", "No notifications yet.", "아직 알림이 없습니다.", "暂无通知。", "Aún no hay notificaciones."],
+["他のメンバーが商品を変更すると、ここに通知が届きます。", "Changes made by other members appear here.", "다른 멤버가 항목을 변경하면 여기에 표시됩니다.", "其他成员更改商品时，通知会显示在这里。", "Los cambios de otros miembros aparecerán aquí."],
+["商品が更新されました", "An item changed", "항목이 변경되었습니다", "商品已更新", "Un artículo ha cambiado"],
+["未読", "Unread", "읽지 않음", "未读", "Sin leer"],
+["再試行", "Retry", "다시 시도", "重试", "Reintentar"],
+
 ['しばらくお待ちください。', 'Please wait a moment.', '잠시만 기다려 주세요.', '请稍候。', 'Espera un momento.'],
 ['処理に30秒以上かかったため、待機を中止しました。最新の状態を確認してから、もう一度お試しください。', 'This action took longer than 30 seconds, so we stopped waiting. Check the latest state before trying again.', '처리가 30초를 초과하여 대기를 중단했습니다. 최신 상태를 확인한 후 다시 시도하세요.', '操作超过30秒，已停止等待。请确认最新状态后重试。', 'La acción tardó más de 30 segundos y dejamos de esperar. Comprueba el estado actual antes de reintentarlo.'],
 ["Kagopitaをインストール", "Install Kagopita", "Kagopita 설치", "安装Kagopita", "Instalar Kagopita"],

@@ -14,9 +14,9 @@ const terms = require('../terms.json');
       if (path === '/api/events') return route.fulfill({ contentType: 'text/event-stream', body: ': test\n\n' });
       let data = {};
       if (path === '/api/terms') data = { ...terms, notify: false };
-      if (path === '/api/me') data = { user: { id: 'u', username: 'Test' }, channels: [{ id: 'a', name: 'Groceries', role: 'admin' }] };
+      if (path === '/api/me') data = { user: { id: 'u', username: 'Test' }, channels: [{ id: 'a', name: 'Groceries', role: 'owner' }] };
       if (path.endsWith('/shopping-list')) data = { total: 1, completed: Number(completed), familyFeed: [], categories: [{ name: '野菜・果物', items: [{ id: 1, name: 'トマト', qty: '2個', addedBy: 'Test', completed, category: '野菜・果物' }] }] };
-      if (path.endsWith('/members')) data = { members: [{ id: 'u', username: 'Test', role: 'admin' }] };
+      if (path.endsWith('/members')) data = { members: [{ id: 'u', username: 'Test', role: 'owner' }] };
       if (path.endsWith('/favorites')) data = { favorites: [] };
       if (path.endsWith('/toggle')) {
         writes++;

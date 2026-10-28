@@ -17,7 +17,7 @@ const original=require('../terms.json');
    if(pathname==='/api/session'){joinPayload=r.request().postDataJSON();return r.fulfill({status:400,json:{error:'Test request captured'}});}
    if(!signedIn)return r.fulfill({status:401,json:{error:'Sign in again.'}});
    let data={};
-   if(pathname==='/api/me')data={user:{id:'u',username:'Test',email:account?'test@example.invalid':null,emailVerified:account},channels:[{id:'a',name:'Groceries',role:'admin'}]};
+   if(pathname==='/api/me')data={user:{id:'u',username:'Test',email:account?'test@example.invalid':null,emailVerified:account},channels:[{id:'a',name:'Groceries',role:'owner'}]};
    if(pathname.endsWith('/shopping-list'))data={total:0,completed:0,familyFeed:[],categories:[]};
    if(pathname.endsWith('/members'))data={members:[]};
    if(pathname.endsWith('/favorites'))data={favorites:[]};

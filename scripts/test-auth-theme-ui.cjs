@@ -13,7 +13,7 @@ const assert=require('node:assert/strict');
    if(path==='/api/me'&&delayMe)await new Promise(resolve=>releaseMe=resolve);
    if(!authenticated||expired)return r.fulfill({status:401,contentType:'application/json',body:'{"error":"Sign in again."}'});
    let data={};
-   if(path==='/api/me')data={user:{id:'u',username:'Guest'},channels:[{id:'a',name:'Groceries',role:'admin'}]};
+   if(path==='/api/me')data={user:{id:'u',username:'Guest'},channels:[{id:'a',name:'Groceries',role:'owner'}]};
    else if(path.endsWith('/shopping-list'))data={total:0,completed:0,familyFeed:[],categories:[]};
    else if(path.endsWith('/members'))data={members:[]};
    else if(path.endsWith('/favorites'))data={favorites:[]};

@@ -1,11 +1,16 @@
 const express = require('express');
 const { db, now } = require('../database');
 const { nextDue, renewDueItems } = require('../recurring');
+const { notifyItemChange } = require('../notifications');
 
 const router = express.Router();
 router.use((req, res, next) => {
   if (req.method !== 'GET' && req.channel.archived_at) {
     return res.status(409).json({ error: 'アーカイブを解除してから変更してください。' });
+  }
+  if (req.method !== 'GET' && req.channelRole === 'viewer' &&
+      !(req.method === 'PATCH' && /^\/items\/[1-9]\d*\/toggle\/?$/.test(req.path))) {
+    return res.status(403).json({ error: 'Viewers can only check or uncheck items.' });
   }
   next();
 });
@@ -21,6 +26,7 @@ function logActivity(req, action, item = '') {
       SELECT id FROM activity_log WHERE channel_id = ? ORDER BY id DESC LIMIT 100
     )
   `).run(req.channel.id, req.channel.id);
+  notifyItemChange(req.channel.id, req.user, action, item, req.app.locals.broadcast);
   req.app.locals.broadcast({ type: 'update', channelId: req.channel.id });
 }
 

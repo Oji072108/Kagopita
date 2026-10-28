@@ -23,6 +23,7 @@ window.KagopitaLiveUpdates = (() => {
     }
   }
   function receive(event) {
+    if (event.type === 'notifications') { window.KagopitaNotifications?.refresh(); return; }
     if (event.type === 'membership-removed') {
       try { notify?.(JSON.parse(event.data)); } catch (error) { console.error(error); }
     }
@@ -46,7 +47,7 @@ window.KagopitaLiveUpdates = (() => {
     refresh = onRefresh; notify = onRemoved;
     if (window.EventSource) {
       source = new EventSource('/api/events');
-      for (const type of ['update', 'channels', 'channel-completed', 'membership-removed']) source.addEventListener(type, receive);
+      for (const type of ['update', 'channels', 'channel-completed', 'membership-removed', 'notifications']) source.addEventListener(type, receive);
       source.addEventListener('open', schedule);
       source.addEventListener('error', schedule);
     }

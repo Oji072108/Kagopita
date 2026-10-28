@@ -95,7 +95,7 @@ const {DatabaseSync} = require('node:sqlite');
    // Select original list, exercise real form serialization and restore via touch.
    await page.locator('#shortcut-left').tap();
    await page.locator('.joined-channel-button').filter({has:page.locator('.joined-channel-name',{hasText:'週末'})}).tap();
-   await page.locator('#nav-add').tap();assert.equal(await page.locator('#inputDetails').getAttribute('open'),null);
+   await openAdd(page);assert.equal(await page.locator('#inputDetails').getAttribute('open'),null);
    await page.locator('#inputName').fill('トマト');await page.locator('#inputQty').fill('3');
    await page.locator('#inputDetails > summary').tap();await page.locator('#inputNotes').fill('小さいもの');await page.locator('#inputPrice').fill('200');
    await page.locator('#inputRecurrence-trigger').tap();await page.locator('#inputRecurrence-options button').filter({hasText:'毎日'}).tap();
@@ -111,10 +111,10 @@ const {DatabaseSync} = require('node:sqlite');
    await page.locator('.shopping-item').filter({hasText:'赤いもの'}).waitFor();
    await page.locator('#shortcut-left').tap();
    const managed=page.locator('.managed-list-row').filter({has:page.locator('.joined-channel-name',{hasText:'週末'})});
-   await managed.getByRole('button',{name:'アーカイブ',exact:true}).tap();
+   await managed.locator('button[aria-label^="アーカイブ:"]').tap();
    await page.locator('#archivedListsDetails > summary').tap();
-   await page.locator('#archivedChannelsList .managed-list-row').filter({hasText:'週末'}).getByRole('button',{name:'アーカイブを解除',exact:true}).tap();
-   await page.locator('#joinedChannelsList .managed-list-row').filter({hasText:'週末'}).getByRole('button',{name:'複製',exact:true}).tap();
+   await page.locator('#archivedChannelsList .managed-list-row').filter({hasText:'週末'}).locator('button[aria-label^="アーカイブを解除:"]').tap();
+   await page.locator('#joinedChannelsList .managed-list-row').filter({hasText:'週末'}).locator('button[aria-label^="複製:"]').tap();
    await page.locator('#view-list').waitFor({state:'visible'});
    assert.equal(await page.locator('.shopping-item').filter({hasText:'トマト'}).count(),1);
    for(const theme of ['light','dark'])for(const width of [320,390,768]){
@@ -127,9 +127,16 @@ const {DatabaseSync} = require('node:sqlite');
     await page.locator('#saveItemButton').scrollIntoViewIfNeeded();await page.screenshot({path:`/tmp/kagopita-features-expanded-${theme}-${width}.png`});
     await page.locator('#cancelItemEdit').tap();
    }
-   for(const locale of ['en','ko','zh','es','ja']){await page.evaluate(locale=>applyLanguage(locale),locale);await page.locator('#nav-add').tap();assert.ok(await page.locator('#inputDetails > summary').textContent());}
+   for(const locale of ['en','ko','zh','es','ja']){await page.evaluate(locale=>applyLanguage(locale),locale);await openAdd(page);assert.ok(await page.locator('#inputDetails > summary').textContent());}
    assert.deepEqual(errors,[]);await browser.close();browser=null;
    console.log('PASS: real API touch flows: add/edit details, restore, archive/unarchive, duplicate, both-theme 320/390/768px, translations, no page errors');
   }
  }finally{if(browser)await browser.close();if(db)db.close();await stop();fs.rmSync(directory,{recursive:true,force:true});}
 })().catch(e=>{console.error(e);process.exitCode=1;});
+
+// The selected Add tab is deliberately disabled; only navigate when leaving another tab.
+async function openAdd(page) {
+  const button = page.locator('#nav-add');
+  if (await button.isDisabled()) assert.equal(await button.getAttribute('aria-current'), 'page');
+  else await button.tap();
+}

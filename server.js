@@ -359,9 +359,9 @@ function attachChannel(req, res, next) {
   next();
 }
 
-function requireChannelAdmin(req, res, next) {
-  if (req.channelRole !== 'admin') {
-    return res.status(403).json({ error: 'Only this list’s admin can do that.' });
+function requireChannelOwner(req, res, next) {
+  if (req.channelRole !== 'owner') {
+    return res.status(403).json({ error: 'Only this list’s owner can do that.' });
   }
   next();
 }
@@ -398,7 +398,7 @@ app.post('/api/session', (req, res, next) => {
       const timestamp = database.now();
       db.prepare('INSERT INTO channels (id, name, created_at) VALUES (?, ?, ?)')
         .run(channelId, '家族の買い物', timestamp);
-      db.prepare("INSERT INTO channel_members (channel_id, user_id, role, joined_at) VALUES (?, ?, 'admin', ?)")
+      db.prepare("INSERT INTO channel_members (channel_id, user_id, role, joined_at) VALUES (?, ?, 'owner', ?)")
         .run(channelId, user.id, timestamp);
       db.prepare(`
         INSERT INTO activity_log (channel_id, user_id, username, action, item, created_at)
@@ -409,7 +409,7 @@ app.post('/api/session', (req, res, next) => {
         .run();
     } else {
       db.prepare('INSERT OR IGNORE INTO channel_members (channel_id, user_id, role, joined_at) VALUES (?, ?, ?, ?)')
-        .run(channelId, user.id, 'member', database.now());
+        .run(channelId, user.id, 'editor', database.now());
       db.prepare('DELETE FROM invites WHERE code = ?').run(invite.code);
     }
 
@@ -759,6 +759,9 @@ app.patch('/api/account/email', async (req, res) => {
 
 app.delete('/api/account', (req, res) => {
   const token = readSessionToken(req);
+  for (const row of db.prepare('SELECT channel_id FROM channel_members WHERE user_id = ?').all(req.user.id)) {
+    removeChannelMember(row.channel_id, req.user.id, req.user, 'left');
+  }
   database.transaction(() => {
     db.prepare('DELETE FROM users WHERE id = ?').run(req.user.id);
     if (token) db.prepare('DELETE FROM sessions WHERE token_hash = ?').run(database.sessionHash(token));
@@ -820,7 +823,7 @@ app.post('/api/invites/accept', (req, res) => {
     return res.status(401).json({ error: 'この招待は無効か、すでに使用されています。' });
   }
   db.prepare('INSERT OR IGNORE INTO channel_members (channel_id, user_id, role, joined_at) VALUES (?, ?, ?, ?)')
-    .run(invite.channel_id, req.user.id, 'member', database.now());
+    .run(invite.channel_id, req.user.id, 'editor', database.now());
   db.prepare('DELETE FROM invites WHERE code = ?').run(invite.code);
   logActivity(invite.channel_id, req.user, 'joined');
   res.json({ channelId: invite.channel_id });
@@ -833,10 +836,10 @@ app.post('/api/channels', (req, res) => {
   }
   const channelId = createChannel(name, req.user.id);
   broadcast({ type: 'channels', recipientId: req.user.id });
-  res.status(201).json({ id: channelId, name, role: 'admin' });
+  res.status(201).json({ id: channelId, name, role: 'owner' });
 });
 
-app.post('/api/channels/:channelId/invites', attachChannel, requireChannelAdmin, (req, res) => {
+app.post('/api/channels/:channelId/invites', attachChannel, requireChannelOwner, (req, res) => {
   let code;
   do {
     code = database.generateInviteCode();
@@ -847,7 +850,7 @@ app.post('/api/channels/:channelId/invites', attachChannel, requireChannelAdmin,
   res.json({ inviteCode: code });
 });
 
-app.post('/api/channels/:channelId/email-invites', attachChannel, requireChannelAdmin, async (req, res) => {
+app.post('/api/channels/:channelId/email-invites', attachChannel, requireChannelOwner, async (req, res) => {
   const email = normalizeEmail(req.body?.email);
   if (!isValidEmail(email)) return res.status(400).json({ error: '有効なメールアドレスを入力してください。' });
   if (emailInviteRateLimited(req.user.id)) return res.status(429).json({ error: '招待メールの送信回数が上限に達しました。しばらくしてからお試しください。' });
@@ -865,6 +868,41 @@ app.post('/api/channels/:channelId/email-invites', attachChannel, requireChannel
     console.error('Could not send list invite email.', error);
     res.status(502).json({ error: '招待メールを送信できませんでした。メール設定を確認してください。' });
   }
+});
+
+// Only the owner can change permissions. Transferring ownership demotes the old owner.
+app.patch('/api/channels/:channelId/members/:userId/role', attachChannel, requireChannelOwner, (req, res) => {
+  const role = req.body?.role;
+  if (!['owner', 'editor', 'viewer'].includes(role)) return res.status(400).json({ error: 'Invalid member role.' });
+  if (req.params.userId === req.user.id) return res.status(400).json({ error: 'Transfer ownership to another member first.' });
+  const member = db.prepare('SELECT role FROM channel_members WHERE channel_id = ? AND user_id = ?')
+    .get(req.channel.id, req.params.userId);
+  if (!member) return res.status(404).json({ error: 'Member not found.' });
+  database.transaction(() => {
+    if (role === 'owner') db.prepare("UPDATE channel_members SET role = 'editor' WHERE channel_id = ? AND role = 'owner'").run(req.channel.id);
+    db.prepare('UPDATE channel_members SET role = ? WHERE channel_id = ? AND user_id = ?').run(role, req.channel.id, req.params.userId);
+    logActivity(req.channel.id, req.user, 'role-changed');
+  });
+  broadcast({ type: 'channels', channelId: req.channel.id });
+  res.json({ role });
+});
+
+app.get('/api/notifications', (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  const notifications = db.prepare(`SELECT n.id, n.channel_id AS channelId, c.name AS channelName,
+    n.actor_name AS actorName, n.action, n.item, n.created_at AS createdAt, n.read_at AS readAt
+    FROM notifications n JOIN channels c ON c.id = n.channel_id
+    JOIN channel_members m ON m.channel_id = n.channel_id AND m.user_id = n.user_id
+    WHERE n.user_id = ? ORDER BY n.id DESC LIMIT 100`).all(req.user.id);
+  res.json({ notifications, unreadCount: notifications.filter(n => !n.readAt).length });
+});
+app.post('/api/notifications/read', (req, res) => {
+  const throughId = req.body?.throughId;
+  if (!Number.isSafeInteger(throughId) || throughId < 0) return res.status(400).json({ error: 'Invalid notification id.' });
+  db.prepare('UPDATE notifications SET read_at = ? WHERE user_id = ? AND id <= ? AND read_at IS NULL')
+    .run(database.now(), req.user.id, throughId);
+  broadcast({ type: 'notifications', recipientId: req.user.id });
+  res.json({ ok: true });
 });
 
 app.get('/api/channels/:channelId/members', attachChannel, (req, res) => {
@@ -886,15 +924,16 @@ function removeChannelMember(channelId, userId, actor, action) {
 
   const remove = () => database.transaction(() => {
     db.prepare('UPDATE shopping_items SET assigned_to = NULL WHERE channel_id = ? AND assigned_to = ?').run(channelId, userId);
+    db.prepare('DELETE FROM notifications WHERE channel_id = ? AND user_id = ?').run(channelId, userId);
     db.prepare('DELETE FROM channel_members WHERE channel_id = ? AND user_id = ?')
       .run(channelId, userId);
 
-    if (membership.role === 'admin') {
+    if (membership.role === 'owner') {
       const nextAdmin = db.prepare(`
-        SELECT user_id FROM channel_members WHERE channel_id = ? ORDER BY joined_at LIMIT 1
+        SELECT user_id FROM channel_members WHERE channel_id = ? ORDER BY CASE role WHEN 'editor' THEN 0 ELSE 1 END, joined_at, user_id LIMIT 1
       `).get(channelId);
       if (nextAdmin) {
-        db.prepare("UPDATE channel_members SET role = 'admin' WHERE channel_id = ? AND user_id = ?")
+        db.prepare("UPDATE channel_members SET role = 'owner' WHERE channel_id = ? AND user_id = ?")
           .run(channelId, nextAdmin.user_id);
       } else {
         db.prepare('DELETE FROM channels WHERE id = ?').run(channelId);
@@ -914,7 +953,7 @@ function removeChannelMember(channelId, userId, actor, action) {
   return true;
 }
 
-app.delete('/api/channels/:channelId/members/:userId', attachChannel, requireChannelAdmin, (req, res) => {
+app.delete('/api/channels/:channelId/members/:userId', attachChannel, requireChannelOwner, (req, res) => {
   if (req.params.userId === req.user.id) {
     return res.status(400).json({ error: 'Use Leave list to remove yourself.' });
   }
@@ -929,7 +968,7 @@ app.delete('/api/channels/:channelId/membership', attachChannel, (req, res) => {
   res.json({ message: 'You left this list.' });
 });
 
-app.post('/api/channels/:channelId/complete', attachChannel, requireChannelAdmin, (req, res) => {
+app.post('/api/channels/:channelId/complete', attachChannel, requireChannelOwner, (req, res) => {
   const channelId = req.channel.id;
   const recipientIds = db.prepare('SELECT user_id FROM channel_members WHERE channel_id = ?')
     .all(channelId).map(row => row.user_id);
@@ -946,17 +985,17 @@ app.post('/api/channels/:channelId/duplicate', attachChannel, (req, res) => {
   const timestamp = database.now();
   database.transaction(() => {
     db.prepare('INSERT INTO channels (id, name, created_at) VALUES (?, ?, ?)').run(id, name.trim(), timestamp);
-    db.prepare("INSERT INTO channel_members (channel_id, user_id, role, joined_at) VALUES (?, ?, 'admin', ?)").run(id, req.user.id, timestamp);
+    db.prepare("INSERT INTO channel_members (channel_id, user_id, role, joined_at) VALUES (?, ?, 'owner', ?)").run(id, req.user.id, timestamp);
     db.prepare(`INSERT INTO shopping_items (channel_id, category, name, qty, completed, added_by, created_at, notes, price, recurrence)
       SELECT ?, category, name, qty, 0, ?, ?, notes, price, recurrence FROM shopping_items
       WHERE channel_id = ? AND deleted_at IS NULL`).run(id, req.user.username, timestamp, req.channel.id);
     logActivity(id, req.user, 'created');
   });
   broadcast({ type: 'channels', recipientId: req.user.id });
-  res.status(201).json({ id, name: name.trim(), role: 'admin', archivedAt: null });
+  res.status(201).json({ id, name: name.trim(), role: 'owner', archivedAt: null });
 });
 
-app.patch('/api/channels/:channelId/archive', attachChannel, requireChannelAdmin, (req, res) => {
+app.patch('/api/channels/:channelId/archive', attachChannel, requireChannelOwner, (req, res) => {
   if (typeof req.body?.archived !== 'boolean') return res.status(400).json({ error: 'アーカイブの状態が無効です。' });
   const archivedAt = req.body.archived ? database.now() : null;
   db.prepare('UPDATE channels SET archived_at = ? WHERE id = ?').run(archivedAt, req.channel.id);

@@ -260,6 +260,40 @@ if (!configuredCode) fs.writeFileSync(codePath, bootstrapCode, { mode: 0o600 });
 
 migrateLegacyState(bootstrapCode);
 
+// Rebuild the constrained legacy role column without losing memberships.
+if (!db.prepare("SELECT sql FROM sqlite_master WHERE name = 'channel_members'").get().sql.includes("'viewer'")) {
+  transaction(() => {
+    db.exec(`
+      CREATE TABLE channel_members_roles (
+        channel_id TEXT NOT NULL REFERENCES channels(id) ON DELETE CASCADE,
+        user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        role TEXT NOT NULL CHECK (role IN ('owner', 'editor', 'viewer')),
+        joined_at TEXT NOT NULL,
+        PRIMARY KEY (channel_id, user_id)
+      );
+      INSERT INTO channel_members_roles SELECT channel_id, user_id,
+        CASE role WHEN 'admin' THEN 'owner' ELSE 'editor' END, joined_at FROM channel_members;
+      DROP TABLE channel_members;
+      ALTER TABLE channel_members_roles RENAME TO channel_members;
+      CREATE INDEX channel_members_user_joined ON channel_members(user_id, joined_at);
+    `);
+  });
+}
+db.exec(`
+  CREATE TABLE IF NOT EXISTS notifications (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    channel_id TEXT NOT NULL REFERENCES channels(id) ON DELETE CASCADE,
+    actor_name TEXT NOT NULL,
+    action TEXT NOT NULL,
+    item TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    read_at TEXT
+  );
+  CREATE INDEX IF NOT EXISTS notifications_user_id ON notifications(user_id, id);
+`);
+
+
 function createSession(userId) {
   const token = crypto.randomBytes(32).toString('hex');
   const expiresAt = Date.now() + 30 * 24 * 60 * 60 * 1000;
@@ -302,7 +336,7 @@ function createChannel(name, userId) {
       .run(channelId, name, timestamp);
     db.prepare(`
       INSERT INTO channel_members (channel_id, user_id, role, joined_at)
-      VALUES (?, ?, 'admin', ?)
+      VALUES (?, ?, 'owner', ?)
     `).run(channelId, userId, timestamp);
     db.prepare(`
       INSERT INTO activity_log (channel_id, user_id, username, action, item, created_at)

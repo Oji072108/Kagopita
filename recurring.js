@@ -1,4 +1,5 @@
 const { db, now, transaction } = require('./database');
+const { notifyItemChange } = require('./notifications');
 
 // Reuse the same item after completion, rather than accumulating duplicate rows.
 function nextDue(recurrence, from = new Date()) {
@@ -28,6 +29,7 @@ function renewDueItems(broadcast = () => {}) {
     }
     return due;
   });
+  for (const item of rows) notifyItemChange(item.channel_id, null, 'recurring', item.name, broadcast);
   for (const channelId of new Set(rows.map(row => row.channel_id))) broadcast({ type: 'update', channelId });
   return rows.length;
 }

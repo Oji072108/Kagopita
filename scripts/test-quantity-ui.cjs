@@ -9,9 +9,9 @@ const assert=require('node:assert/strict');
  await page.route('**/api/**',async route=>{
   const req=route.request(),path=new URL(req.url()).pathname;
   let data={};
-  if(path==='/api/me') data={user:{id:'u',username:'検証'},channels:[{id:'a',name:'検証リスト',role:'admin'}]};
+  if(path==='/api/me') data={user:{id:'u',username:'検証'},channels:[{id:'a',name:'検証リスト',role:'owner'}]};
   else if(path.endsWith('/shopping-list')) data={total:1,completed:0,familyFeed:[],categories:[{name:'野菜・果物',items:[item]}]};
-  else if(path.endsWith('/members')) data={members:[{id:'u',username:'検証',role:'admin'}]};
+  else if(path.endsWith('/members')) data={members:[{id:'u',username:'検証',role:'owner'}]};
   else if(path.endsWith('/favorites')) data={favorites:[]};
   else if(['POST','PUT'].includes(req.method()) && /\/items(?:\/1)?$/.test(path)) {const payload=req.postDataJSON(); writes.push(payload);Object.assign(item,payload);data={item};}
   else if(path==='/api/events') return route.fulfill({contentType:'text/event-stream',body:': test\n\n'});
@@ -40,7 +40,7 @@ const assert=require('node:assert/strict');
  assert.equal(await page.locator('#showChannelsButton').evaluate(e=>getComputedStyle(e,'::after').content),'"✓"');
  assert.equal(await page.locator('#navigationDialog [aria-current="page"]').count(),1);
  await page.keyboard.press('Escape');
- await page.locator('#nav-add').tap();
+ await openAdd(page);
  await page.locator('#inputName').fill('にんじん');await page.locator('#inputQty').fill('3');
  assert.equal(await page.locator('#inputQtyPreview').textContent(),'→ 3本');
  await page.locator('#inputName').fill('トマト');
@@ -60,7 +60,7 @@ const assert=require('node:assert/strict');
   await page.evaluate(theme=>{document.documentElement.classList.toggle('dark-mode',theme==='dark');document.body.classList.toggle('dark-mode',theme==='dark');localStorage.setItem('kagopita-theme',theme);},theme);
   for(const width of [320,390,768]) {
    await page.setViewportSize({width,height:844});
-   await page.locator('#nav-add').tap();
+   await openAdd(page);
    await page.locator('#inputName').fill('箸');await page.locator('#inputQty').fill('2');
    assert.equal(await page.locator('#inputQtyPreview').textContent(),'→ 2膳');
    assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'overflow '+theme+width);
@@ -77,7 +77,7 @@ const assert=require('node:assert/strict');
    assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
    await page.locator('#clearFilters').tap();
    await page.locator('#searchDetails > summary').tap();
-   await page.locator('#nav-add').tap();
+   await openAdd(page);
   }
   await page.setViewportSize({width:390,height:844});
   await page.locator('#view-add').evaluate(e=>e.getAnimations().forEach(a=>a.finish()));
@@ -92,10 +92,17 @@ const assert=require('node:assert/strict');
  await page.keyboard.press('Escape');
  for(const language of ['en','ko','zh','es','ja']) {
   await page.evaluate(language=>applyLanguage(language),language);
-  await page.locator('#nav-add').tap();
+  await openAdd(page);
   assert.equal(await page.locator('#inputQtyPreview').textContent(),({en:'→ 2 pairs',ko:'→ 2벌',zh:'→ 2双',es:'→ 2 pares',ja:'→ 2膳'})[language]);
  }
  assert.deepEqual(errors,[]);
  console.log('PASS: served assets, list-switch current check/disabled, folded searchable filters, automatic-only quantities, full dropdown labels, live name/number inference, add/edit payloads, preserved explicit quantities, 320/390/768px light/dark, translations, no page errors');
  await browser.close();
 })().catch(e=>{console.error(e);process.exit(1)});
+
+// The selected Add tab is deliberately disabled; only navigate when leaving another tab.
+async function openAdd(page) {
+  const button = page.locator('#nav-add');
+  if (await button.isDisabled()) assert.equal(await button.getAttribute('aria-current'), 'page');
+  else await button.tap();
+}

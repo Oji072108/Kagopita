@@ -20,8 +20,8 @@ const assert = require('node:assert/strict');
      if(failKick)return route.fulfill({status:500,contentType:'application/json',body:JSON.stringify({error:'Please try again.'})});
     }
    }
-   if(path==='/api/me')data={user:{id:'u',username:'Test',email:'test@example.com',emailVerified:true},channels:[{id:'a',name:'Family groceries',role:'admin'}]};
-   else if(path.endsWith('/members'))data={members:[{id:'u',username:'Test',role:'admin'},{id:'m',username:person,role:'member'}]};
+   if(path==='/api/me')data={user:{id:'u',username:'Test',email:'test@example.com',emailVerified:true},channels:[{id:'a',name:'Family groceries',role:'owner'}]};
+   else if(path.endsWith('/members'))data={members:[{id:'u',username:'Test',role:'owner'},{id:'m',username:person,role:'editor'}]};
    else if(path.endsWith('/shopping-list'))data={total:1,completed:1,categories:[{name:'野菜・果物',items:[{id:1,name:'りんご',qty:'1個',completed:true}]}],familyFeed:[]};
    else if(path.endsWith('/favorites'))data={favorites:[]};
    await route.fulfill({contentType:'application/json',body:JSON.stringify(data)});

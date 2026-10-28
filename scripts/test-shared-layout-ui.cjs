@@ -4,7 +4,7 @@ const assert=require('node:assert/strict');
 const browser=await chromium.launch({headless:true,executablePath:process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH,args:['--no-sandbox']});
 try{
 const page=await browser.newPage({viewport:{width:390,height:844},hasTouch:true});const errors=[],writes=[];page.on('pageerror',e=>errors.push(e.message));
-let channels=[{id:'a',name:'Weekend groceries',role:'admin'},{id:'b',name:'Family essentials',role:'member'},{id:'z',name:'Holiday shopping',role:'admin',archivedAt:'2026-10-01'}];
+let channels=[{id:'a',name:'Weekend groceries',role:'owner'},{id:'b',name:'Family essentials',role:'editor'},{id:'z',name:'Holiday shopping',role:'owner',archivedAt:'2026-10-01'}];
 await page.addInitScript(()=>localStorage.setItem('kagopita-language','en'));
 await page.route('**/api/**',async r=>{
 const req=r.request(),path=new URL(req.url()).pathname;let data={};
@@ -16,10 +16,10 @@ else if(path==='/api/events')return r.fulfill({contentType:'text/event-stream',b
 else if(req.method()!=='GET'){
  const body=req.postData()?req.postDataJSON():{};writes.push({path,method:req.method(),body});
  const id=path.split('/')[3];
- if(path.endsWith('/duplicate')){data={id:'copy'};channels.push({id:'copy',name:'Copy',role:'admin'})}
+ if(path.endsWith('/duplicate')){data={id:'copy'};channels.push({id:'copy',name:'Copy',role:'owner'})}
  else if(path.endsWith('/archive'))channels.find(c=>c.id===id).archivedAt=body.archived?'2026-10-27':null;
- else if(path==='/api/channels'){data={id:'new'};channels.push({id:'new',name:body.name,role:'admin'})}
- else if(path==='/api/invites/accept'){data={channelId:'joined'};channels.push({id:'joined',name:'Joined',role:'member'})}
+ else if(path==='/api/channels'){data={id:'new'};channels.push({id:'new',name:body.name,role:'owner'})}
+ else if(path==='/api/invites/accept'){data={channelId:'joined'};channels.push({id:'joined',name:'Joined',role:'editor'})}
 }
 await r.fulfill({contentType:'application/json',body:JSON.stringify(data)});
 });
