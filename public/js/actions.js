@@ -106,6 +106,7 @@ window.KagopitaActions = (() => {
     if (!['click', 'submit', 'change'].includes(event.type)) return;
     const trigger = event.submitter || event.target.closest?.('button, input[type="submit"], a, summary, select');
     if (!trigger) return;
+    if (trigger.matches('.custom-select-trigger, #notificationsButton')) { intent = null; return; }
     const destination = trigger.dataset.navigationAction || trigger.dataset.menuTab || (trigger.id === 'nav-list' ? 'list' : null);
     if (['list', 'members'].includes(destination)) { intent = null; return; }
     const entry = { trigger };

@@ -1,5 +1,12 @@
 /* Canonical Japanese keys, translated consistently for static and rebuilt controls. */
 window.kagopitaLocaleRows = [
+["作成者（オーナー）", "Creator (owner)", "생성자 (소유자)", "创建者（所有者）", "Creador (propietario)"],
+["管理者（オーナー）", "Administrator (owner)", "관리자 (소유자)", "管理员（所有者）", "Administrador (propietario)"],
+["既読にすると通知は削除されます。", "Marking all as read clears these notifications.", "모두 읽음 처리하면 알림이 삭제됩니다.", "全部标为已读将清除这些通知。", "Marcar todo como leído elimina estas notificaciones."],
+["通知のページ", "Notification pages", "알림 페이지", "通知页面", "Páginas de notificaciones"],
+["作成者は管理者を任命できます。管理者はメンバー管理、編集者は商品の編集、メンバーはチェックのみできます。", "Only the creator appoints administrators. Administrators manage members, editors edit items, and members only check items.", "생성자만 관리자를 지정합니다. 관리자는 멤버 관리, 편집자는 항목 편집, 멤버는 체크만 할 수 있습니다.", "仅创建者可任命管理员。管理员管理成员，编辑者编辑商品，成员只能勾选商品。", "Solo el creador nombra administradores. Los administradores gestionan miembros, los editores editan artículos y los miembros solo los marcan."],
+["作成者が退出すると、このリストと商品・履歴が完全に削除され、全員が退出します。この操作は取り消せません。", "As the creator, leaving permanently deletes this list, its items and history for everyone. This cannot be undone.", "생성자가 나가면 목록, 항목 및 기록이 모두에게 영구 삭제됩니다. 이 작업은 취소할 수 없습니다.", "创建者退出将永久删除所有人的清单、商品及历史记录。此操作无法撤销。", "Si el creador sale, se eliminan permanentemente la lista, sus artículos e historial para todos. No se puede deshacer."],
+["退出すると、このリストが参加中のリストから削除されます。他のメンバーは引き続き利用できます。", "Leaving removes this list from your lists. Other members can continue using it.", "나가면 내 목록에서 삭제됩니다. 다른 멤버는 계속 사용할 수 있습니다.", "退出将从您的清单中移除此清单。其他成员可继续使用。", "Al salir, esta lista se retira de tus listas. Los demás miembros pueden seguir usándola."],
 ["オーナー", "Owner", "소유자", "所有者", "Propietario"],
 ["編集者", "Editor", "편집자", "编辑者", "Editor"],
 ["閲覧者", "Viewer", "열람자", "查看者", "Lector"],

@@ -8,9 +8,9 @@ router.use((req, res, next) => {
   if (req.method !== 'GET' && req.channel.archived_at) {
     return res.status(409).json({ error: 'アーカイブを解除してから変更してください。' });
   }
-  if (req.method !== 'GET' && req.channelRole === 'viewer' &&
+  if (req.method !== 'GET' && req.channelRole === 'member' &&
       !(req.method === 'PATCH' && /^\/items\/[1-9]\d*\/toggle\/?$/.test(req.path))) {
-    return res.status(403).json({ error: 'Viewers can only check or uncheck items.' });
+    return res.status(403).json({ error: 'Members can only check or uncheck items.' });
   }
   next();
 });

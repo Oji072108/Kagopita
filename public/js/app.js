@@ -5,8 +5,8 @@ let currentChannelId = null;
 let currentMemberRole = null;
 let channels = [];
 let favoritesRequestId = 0;
-const canEditItems = () => ['owner', 'editor'].includes(currentMemberRole);
-const memberRoleLabel = role => ({owner: 'オーナー', editor: '編集者', viewer: '閲覧者'})[role] || '閲覧者';
+const canEditItems = () => ['owner', 'admin', 'editor'].includes(currentMemberRole);
+const memberRoleLabel = role => ({owner: '作成者（オーナー）', admin: '管理者（オーナー）', editor: '編集者', member: 'メンバー'})[role] || 'メンバー';
 
 const $ = id => document.getElementById(id);
 const shoppingLanguage = () => localStorage.getItem('kagopita-language') || 'ja';
@@ -1055,7 +1055,7 @@ async function readAvatarFile(file) {
   canvas.getContext('2d').drawImage(bitmap, (bitmap.width - size) / 2, (bitmap.height - size) / 2, size, size, 0, 0, 256, 256);
   return canvas.toDataURL('image/jpeg', 0.82);
 }
-let membersRequestId = 0;
+let membersRequestId = 0, membersRefreshPending = false;
 async function loadMembers() {
   const requestId = ++membersRequestId;
   const channelId = currentChannelId;
@@ -1074,6 +1074,16 @@ async function loadMembers() {
     return;
   }
 
+  // Do not replace a role picker while the user is interacting with it.
+  const activePicker = container.querySelector('.custom-select.is-open');
+  if (activePicker) {
+    if (!membersRefreshPending) {
+      membersRefreshPending = true;
+      activePicker.addEventListener('kagopita:select-close', () => { membersRefreshPending = false; loadMembers(); }, {once:true});
+    }
+    return;
+  }
+
   container.replaceChildren();
   members.forEach(member => {
     const row = document.createElement('div');
@@ -1087,13 +1097,13 @@ async function loadMembers() {
     role.textContent = translateFeature(memberRoleLabel(member.role));
     content.appendChild(role);
     row.append(avatar, content);
-    if (currentMemberRole === 'owner' && member.id !== currentUser.id) {
+    if (['owner', 'admin'].includes(currentMemberRole) && member.id !== currentUser.id && member.role !== 'owner' && (currentMemberRole === 'owner' || member.role !== 'admin')) {
       const controls = document.createElement('div'); controls.className = 'member-role-controls';
       const select = document.createElement('select'); select.className = 'member-role-select';
-      select.dataset.nativeSelect = 'true';
+      select.id = `member-role-${member.id}`;
       select.setAttribute('aria-label', `${member.username}: ${translateFeature('権限')}`);
       select.dataset.i18nIgnore = 'true';
-      for (const value of ['editor', 'viewer', 'owner']) select.add(new Option(translateFeature(memberRoleLabel(value)), value));
+      for (const value of (currentMemberRole === 'owner' ? ['member', 'editor', 'admin'] : ['member', 'editor'])) select.add(new Option(translateFeature(memberRoleLabel(value)), value));
       select.value = member.role;
       select.addEventListener('change', async () => {
         const selectedRole = select.value;
@@ -1104,9 +1114,7 @@ async function loadMembers() {
           await refreshChannels(); await loadMembers();
         };
         try {
-          if (selectedRole === 'owner') {
-            await KagopitaDialogs.show({title: 'オーナーを変更しますか？', body: '変更すると自分は編集者になります。', confirmLabel: '変更する', onConfirm: save});
-          } else await save();
+          await save();
         } catch (error) { KagopitaDialogs.notice(error.message); }
         finally { if (select.isConnected) { select.disabled = false; select.value = member.role; } }
       });
@@ -1130,6 +1138,7 @@ async function loadMembers() {
     }
     container.appendChild(row);
   });
+  window.KagopitaSelects?.enhance(container);
 }
 
 function updateAccountStatus(language) {
@@ -1401,7 +1410,7 @@ $('leaveGroup').addEventListener('click', () => {
   const url = channelUrl('/membership');
   return KagopitaDialogs.show({
     title: 'リストから退出しますか？',
-    body: '退出すると、このリストが参加中のリストから削除されます。管理者の場合、残っているメンバーに管理者権限が移ります。',
+    body: currentMemberRole === 'owner' ? '作成者が退出すると、このリストと商品・履歴が完全に削除され、全員が退出します。この操作は取り消せません。' : '退出すると、このリストが参加中のリストから削除されます。他のメンバーは引き続き利用できます。',
     confirmLabel: '退出する', danger: true,
     onConfirm: async () => { await api(url, { method: 'DELETE' }); await refreshChannels(null); }
   });
@@ -1512,6 +1521,7 @@ function openNavigationMenu() {
   if (!currentUser) return closeNavigationMenu();
   const menu = $('navigationDialog');
   if (menu.classList.contains('is-open')) return closeNavigationMenu();
+  window.KagopitaNotifications?.close();
   syncNavigationMenu();
   menu.scrollTop = 0;
   menu.inert = false; menu.classList.add('is-open'); menu.setAttribute('aria-hidden', 'false');

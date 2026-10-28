@@ -8,8 +8,6 @@ function notifyItemChange(channelId, actor, action, item, broadcast = () => {}) 
     VALUES (?, ?, ?, ?, ?, ?)`);
   for (const { user_id: userId } of recipients) {
     insert.run(userId, channelId, actor?.username || 'カゴピタ', action, item, now());
-    db.prepare(`DELETE FROM notifications WHERE user_id = ? AND id NOT IN
-      (SELECT id FROM notifications WHERE user_id = ? ORDER BY id DESC LIMIT 100)`).run(userId, userId);
     broadcast({ type: 'notifications', recipientId: userId });
   }
 }

@@ -31,6 +31,7 @@ const {DatabaseSync} = require('node:sqlite');
   const root=`/api/channels/${channel.id}`;
   const {data:invite}=await request(owner.cookie,root+'/invites','POST',{});
   await request(member.cookie,'/api/invites/accept','POST',{invite:invite.inviteCode});
+  await request(owner.cookie,root+`/members/${member.data.user.id}/role`,'PATCH',{role:'editor'});
   const values={name:'牛乳',qty:'2本',category:'乳製品',notes:'低脂肪\n2本でこの価格',price:398,recurrence:'weekly',assignedTo:member.data.user.id};
   const {data:created}=await request(owner.cookie,root+'/items','POST',values,201);
   const url=root+`/items/${created.item.id}`;
