@@ -20,3 +20,7 @@
 .pwa-step-content { display: grid; gap: 10px; min-width: 0; color: inherit; }
 .pwa-step-icon { display: block; width: 32px; height: 36px; color: var(--text); }
 .pwa-step-content > span { color: inherit; }
+/* The programmatically focused heading announces the guide without a control ring. */
+#pwaInstallTitle:focus { outline: none; }
+.pwa-install-steps li { align-items: center; }
+.pwa-install-steps .pwa-step-content { grid-template-columns: 32px minmax(0, 1fr); align-items: center; gap: 12px; color: var(--text); }
