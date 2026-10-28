@@ -1,0 +1,8 @@
+.pwa-install { display: grid; justify-items: start; gap: 8px; margin-bottom: 16px; }
+.pwa-install .share-message:empty { display: none; }
+.pwa-install .share-message { margin: 0; }
+.pwa-install-dialog .share-content { display: grid; gap: 16px; }
+.pwa-install-dialog p { margin: 0; line-height: 1.6; color: var(--muted); }
+.pwa-install-steps { margin: 0; padding-left: 1.5em; line-height: 1.8; overflow-wrap: anywhere; }
+.pwa-install-steps li + li { margin-top: 8px; }
+.pwa-install-dialog button:focus-visible, .pwa-install button:focus-visible { outline: 3px solid var(--primary); outline-offset: 3px; }

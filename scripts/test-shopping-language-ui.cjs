@@ -19,7 +19,7 @@ async function viewer(language){
  else if(path==='/api/events')return route.fulfill({contentType:'text/event-stream',body:': test\n\n'});
  await route.fulfill({contentType:'application/json',body:JSON.stringify(data)});
  });
- await page.goto('http://158.51.109.93:3001',{waitUntil:'networkidle'});await page.locator('.shopping-item').first().waitFor();return page;
+ await page.goto(process.env.KAGOPITA_TEST_URL || 'http://127.0.0.1:3001',{waitUntil:'networkidle'});await page.locator('.shopping-item').first().waitFor();return page;
 }
 const ja=await viewer('ja'), en=await viewer('en');
 assert.match(await ja.locator('.item-name').first().innerText(),/牛乳.*1本/);

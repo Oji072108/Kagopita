@@ -23,7 +23,7 @@ else if(req.method()!=='GET'){
 }
 await r.fulfill({contentType:'application/json',body:JSON.stringify(data)});
 });
-await page.goto('http://158.51.109.93:3001',{waitUntil:'networkidle'});await page.locator('#shortcut-left').tap();await page.locator('#view-channels').waitFor({state:'visible'});
+await page.goto(process.env.KAGOPITA_TEST_URL || 'http://127.0.0.1:3001',{waitUntil:'networkidle'});await page.locator('#shortcut-left').tap();await page.locator('#view-channels').waitFor({state:'visible'});
 assert.equal(await page.locator('#joinedChannelsList .managed-list-row').count(),2);
 assert.equal(await page.locator('#joinedChannelsList .managed-list-row').nth(0).locator('.list-management-actions button').count(),2);
 assert.equal(await page.locator('#joinedChannelsList .managed-list-row').nth(1).locator('.list-management-actions button').count(),1);

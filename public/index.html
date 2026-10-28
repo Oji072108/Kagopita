@@ -8,6 +8,9 @@
   <link rel="icon" href="/favicon.ico" sizes="any">
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="カゴピタ">
   <meta name="description" content="家族や友だちとお買い物リストを共有。カゴピタで、買い忘れも買いすぎもなくそう。">
   <meta property="og:type" content="website">
   <meta property="og:locale" content="ja_JP">
@@ -31,16 +34,18 @@
   <link href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@400;500;700;900&display=swap" rel="stylesheet">
   <script src="https://unpkg.com/@phosphor-icons/web"></script>
   <script src="/vendor/qrcode.min.js" defer></script>
-  <script src="/js/i18n.js?v=20261028-terms4" defer></script>
+  <script src="/js/i18n.js?v=20261028-pwa1" defer></script>
   <script src="/js/shopping-language.js?v=20261028-terms4" defer></script>
   <script src="/js/quantity.js?v=20261028-terms4" defer></script>
   <script src="/js/category.js?v=20261028-terms4" defer></script>
   <script src="/js/dialogs.js?v=20261028-terms4" defer></script>
   <script src="/js/terms.js?v=20261028-terms4" defer></script>
-  <script src="/js/live-updates.js?v=20261028-live1" defer></script>
-  <script src="/js/app.js?v=20261028-live1" defer></script>
+  <script src="/js/live-updates.js?v=20261028-pwa1" defer></script>
+  <script src="/js/app.js?v=20261028-pwa1" defer></script>
   <script src="/js/custom-select.js?v=20261028-terms4" defer></script>
   <link rel="stylesheet" href="/css/dark-mode.css?v=20261028-terms4">
+  <link rel="stylesheet" href="/css/pwa.css?v=20261028-pwa1">
+  <script src="/js/pwa.js?v=20261028-pwa1" defer></script>
 </head>
 <body>
   <header class="header">
@@ -61,6 +66,10 @@
   </header>
 
   <main class="main">
+    <div id="pwaInstall" class="pwa-install hidden">
+      <button id="pwaInstallButton" class="btn btn-secondary" type="button">インストール方法</button>
+      <p id="pwaInstallStatus" class="share-message" role="status" aria-live="polite"></p>
+    </div>
     <aside id="termsUpdateNotice" class="terms-update hidden" role="status" aria-live="polite"><div><strong>利用規約を更新しました</strong><p id="termsUpdateSummary" data-i18n-ignore="true"></p></div><button id="termsUpdateRead" class="btn btn-secondary" type="button">変更内容を確認</button><button id="termsUpdateDismiss" class="text-button" type="button">確認済みにする</button></aside>
     <p id="authNotice" class="share-message hidden" role="status" aria-live="polite"></p>
     <section id="noChannels" class="panel hidden">
@@ -461,6 +470,21 @@
         <p id="emailInviteMessage" class="share-message" role="status" aria-live="polite"></p>
       </form>
       <button id="closeShareDialog" class="btn btn-secondary" type="button">閉じる</button>
+    </div>
+  </dialog>
+
+  <dialog id="pwaInstallDialog" class="share-dialog pwa-install-dialog" aria-labelledby="pwaInstallTitle" aria-describedby="pwaInstallDescription">
+    <div class="share-content">
+      <h2 id="pwaInstallTitle" class="panel-title">インストール方法</h2>
+      <p id="pwaInstallDescription">iPhone・iPadへのインストールはSafariで手動で行います。</p>
+      <ol class="pwa-install-steps">
+        <li>Safariでkagopita.comを開きます。</li>
+        <li>共有ボタン（四角から上向きの矢印）をタップします。</li>
+        <li>「ホーム画面に追加」を選択します。</li>
+        <li>「Webアプリとして開く」が表示された場合はオンにします。</li>
+        <li>「追加」をタップします。</li>
+      </ol>
+      <button id="pwaInstallClose" class="btn btn-secondary" type="button">閉じる</button>
     </div>
   </dialog>
 

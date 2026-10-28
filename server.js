@@ -43,6 +43,10 @@ app.get('/vendor/qrcode.min.js', (req, res) => {
 });
 app.use('/css', express.static(path.join(__dirname, 'public', 'css')));
 app.use('/js', express.static(path.join(__dirname, 'public', 'js')));
+app.get('/sw.js', (req, res) => {
+  res.set('Cache-Control', 'no-cache');
+  res.sendFile(path.join(__dirname, 'public', 'sw.js'));
+});
 // Render absolute sharing URLs for crawlers without requiring JavaScript.
 app.get(['/', '/index.html'], (req, res) => {
   const publicUrl = (process.env.PUBLIC_URL || `http://localhost:${PORT}`).replace(/\/+$/, '');

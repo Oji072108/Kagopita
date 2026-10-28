@@ -1,5 +1,13 @@
 /* Canonical Japanese keys, translated consistently for static and rebuilt controls. */
 window.kagopitaLocaleRows = [
+["Kagopitaをインストール", "Install Kagopita", "Kagopita 설치", "安装Kagopita", "Instalar Kagopita"],
+["インストール方法", "How to Install", "설치 방법", "安装方法", "Cómo instalar"],
+["iPhone・iPadへのインストールはSafariで手動で行います。", "Installation on iPhone or iPad must be completed manually in Safari.", "iPhone・iPad에서는 Safari에서 직접 설치해야 합니다.", "iPhone或iPad需在Safari中手动安装。", "En iPhone o iPad, la instalación se realiza manualmente en Safari."],
+["Safariでkagopita.comを開きます。", "Open kagopita.com in Safari.", "Safari에서 kagopita.com을 엽니다.", "在Safari中打开kagopita.com。", "Abre kagopita.com en Safari."],
+["共有ボタン（四角から上向きの矢印）をタップします。", "Tap the Share button (square with upward arrow).", "공유 버튼(위쪽 화살표가 있는 사각형)을 탭합니다.", "轻点共享按钮（带向上箭头的方框）。", "Toca Compartir (cuadrado con flecha hacia arriba)."],
+["「ホーム画面に追加」を選択します。", "Select “Add to Home Screen”.", "“홈 화면에 추가”를 선택합니다.", "选择“添加到主屏幕”。", "Selecciona “Añadir a pantalla de inicio”."],
+["「Webアプリとして開く」が表示された場合はオンにします。", "Enable “Open as Web App” if available.", "“웹 앱으로 열기”가 표시되면 켭니다.", "如有“作为Web App打开”，请启用。", "Activa “Abrir como app web” si está disponible."],
+["「追加」をタップします。", "Tap “Add”.", "“추가”를 탭합니다.", "轻点“添加”。", "Toca “Añadir”."],
 ["確認して戻る", "Done reading", "확인 후 돌아가기", "阅读完毕并返回", "Listo, volver"],
 ["利用規約", "Terms of Service", "이용약관", "服务条款", "Términos del servicio"],
 ["利用規約を読む", "Read the terms", "약관 읽기", "阅读条款", "Leer los términos"],

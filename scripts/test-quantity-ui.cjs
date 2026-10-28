@@ -71,7 +71,9 @@ const assert=require('node:assert/strict');
    await page.locator('#categoryFilter').evaluate((select,text)=>select.add(new Option(text,'long-category')),fullLabel);
    await page.selectOption('#categoryFilter','long-category');
    const style=await page.locator('#categoryFilter-trigger-value').evaluate(e=>({overflow:getComputedStyle(e).textOverflow,whiteSpace:getComputedStyle(e).whiteSpace}));
-   assert.equal(style.overflow,'clip');assert.equal(style.whiteSpace,'normal');
+   // The current design fits labels on one row, with ellipsis as the fallback.
+   assert.equal(style.overflow,'ellipsis');assert.equal(style.whiteSpace,'nowrap');
+   assert.equal(await page.locator('#categoryFilter-trigger-value').textContent(),fullLabel);
    assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
    await page.locator('#clearFilters').tap();
    await page.locator('#searchDetails > summary').tap();
@@ -91,7 +93,7 @@ const assert=require('node:assert/strict');
  for(const language of ['en','ko','zh','es','ja']) {
   await page.evaluate(language=>applyLanguage(language),language);
   await page.locator('#nav-add').tap();
-  assert.equal(await page.locator('#inputQtyPreview').textContent(),'→ 2膳');
+  assert.equal(await page.locator('#inputQtyPreview').textContent(),({en:'→ 2 pairs',ko:'→ 2벌',zh:'→ 2双',es:'→ 2 pares',ja:'→ 2膳'})[language]);
  }
  assert.deepEqual(errors,[]);
  console.log('PASS: served assets, list-switch current check/disabled, folded searchable filters, automatic-only quantities, full dropdown labels, live name/number inference, add/edit payloads, preserved explicit quantities, 320/390/768px light/dark, translations, no page errors');
