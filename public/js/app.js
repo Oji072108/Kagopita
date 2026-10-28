@@ -1103,6 +1103,7 @@ async function loadMembers() {
     content.appendChild(role);
     row.append(avatar, content);
     if (['owner', 'admin'].includes(currentMemberRole) && member.id !== currentUser.id && member.role !== 'owner' && (currentMemberRole === 'owner' || member.role !== 'admin')) {
+      row.classList.add('member-row-editable');
       const controls = document.createElement('div'); controls.className = 'member-role-controls';
       const select = document.createElement('select'); select.className = 'member-role-select';
       select.id = `member-role-${member.id}`;
