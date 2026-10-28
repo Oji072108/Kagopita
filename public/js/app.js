@@ -234,7 +234,7 @@ function updateChannelControls() {
   $('nav-list').disabled = !currentChannelId;
   $('nav-list').classList.toggle('hidden', !currentChannelId);
   document.querySelector('.bottom-nav-links').classList.toggle('without-list', !currentChannelId);
-  $('nav-add').disabled = !currentChannelId;
+  $('nav-add').disabled = !currentChannelId || currentTab === 'add';
   $('nav-add').classList.toggle('hidden', !currentChannelId);
   $('noChannels').classList.toggle('hidden', !currentUser || channels.length > 0 || ['channels', 'account'].includes(currentTab));
   $('channelViews').classList.toggle('hidden', !currentChannelId || ['channels', 'account'].includes(currentTab));
@@ -908,9 +908,11 @@ async function switchTab(tab) {
   if (tab === 'complete' && currentMemberRole !== 'admin') return;
   if (!currentUser) return;
   if (!currentChannelId && ['list', 'add', 'members', 'complete'].includes(tab)) return switchTab('channels');
+  if (tab === 'add' && currentTab === 'add') return;
   const previousTab = currentTab;
   closeNavigationMenu();
   currentTab = tab;
+  $('nav-add').disabled = !currentChannelId || tab === 'add';
   window.scrollTo({top: 0, behavior: 'instant'});
   $('channelViews').classList.toggle('hidden', !currentChannelId || ['channels', 'account'].includes(tab));
   $('noChannels').classList.toggle('hidden', !currentUser || channels.length > 0 || ['channels', 'account'].includes(tab));
@@ -923,7 +925,7 @@ async function switchTab(tab) {
     else nav.removeAttribute('aria-current');
     const icon = nav.querySelector('i');
     if (icon) {
-      icon.className = name === tab
+      icon.className = name === tab && name !== 'add'
         ? icon.className.replace('ph-bold', 'ph-fill')
         : icon.className.replace('ph-fill', 'ph-bold');
     }
