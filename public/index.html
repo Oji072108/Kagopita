@@ -349,11 +349,15 @@
 
     <section id="view-members" class="view hidden">
       <div class="panel">
-        <h2 class="panel-title">
-          <i class="ph-bold ph-users-three"></i>
-          メンバー
+        <h2 class="panel-title members-heading">
+          <i class="ph-bold ph-users-three" aria-hidden="true"></i>
+          <span>メンバー</span>
         </h2>
-        <p class="member-permission-hint">作成者は管理者を任命できます。管理者はメンバー管理、編集者は商品の編集、メンバーはチェックのみできます。</p><div id="membersContainer" class="feed"></div>
+        <details class="member-permissions">
+          <summary><i class="ph ph-info" aria-hidden="true"></i><span>権限</span><i class="ph-bold ph-caret-down" aria-hidden="true"></i></summary>
+          <p class="member-permission-hint">作成者は管理者を任命できます。管理者はメンバー管理、編集者は商品の編集、メンバーはチェックのみできます。</p>
+        </details>
+        <div id="membersContainer" class="feed"></div>
       </div>
     </section>
     </div>
