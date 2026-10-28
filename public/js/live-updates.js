@@ -1,8 +1,7 @@
 /* One connection per page, with catch-up for mobile sleep and missed events. */
 window.KagopitaLiveUpdates = (() => {
-  let source = null, timer = null, poll = null, refresh = null, notify = null;
+  let source = null, timer = null, refresh = null, notify = null;
   let running = false, pending = false, generation = 0;
-  let lastCatchup = 0;
   function schedule() {
     if (!refresh) return;
     pending = true;
@@ -14,7 +13,7 @@ window.KagopitaLiveUpdates = (() => {
     if (!refresh || document.hidden || navigator.onLine === false || document.querySelector('dialog[open]') || window.KagopitaActions?.busy) return;
     const version = generation;
     pending = false; running = true;
-    try { await refresh(); lastCatchup = Date.now(); }
+    try { await refresh(); }
     catch (error) { console.error('Could not synchronize live updates.', error); }
     finally {
       if (version === generation) {
@@ -35,8 +34,8 @@ window.KagopitaLiveUpdates = (() => {
     source = new EventSource('/api/events');
     for (const type of ['update', 'channels', 'channel-completed', 'membership-removed', 'notifications']) source.addEventListener(type, receive);
     source.addEventListener('open', schedule);
-    // Reconnect catches up on open; the fallback timer covers connection errors
-    // without issuing an extra full refresh for every retry.
+    // EventSource reconnects automatically; catch up once it opens again.
+    // No periodic list downloads, even while disconnected.
   }
   function resume() {
     if (document.hidden || navigator.onLine === false) {
@@ -51,8 +50,8 @@ window.KagopitaLiveUpdates = (() => {
   function stop() {
     generation++;
     source?.close(); source = null;
-    clearTimeout(timer); clearInterval(poll);
-    timer = poll = refresh = notify = null;
+    clearTimeout(timer);
+    timer = refresh = notify = null;
     pending = running = false;
     window.removeEventListener('focus', resume);
     window.removeEventListener('online', resume);
@@ -65,12 +64,6 @@ window.KagopitaLiveUpdates = (() => {
     if (refresh) return;
     refresh = onRefresh; notify = onRemoved;
     connect();
-    // Live events do the normal syncing. A five-minute safety check still
-    // catches buffering proxies; disconnected/unsupported streams poll faster.
-    poll = setInterval(() => {
-      const interval = source?.readyState === 1 ? 300000 : navigator.connection?.saveData ? 60000 : 15000;
-      if (Date.now() - lastCatchup >= interval) schedule();
-    }, 15000);
     window.addEventListener('focus', resume);
     window.addEventListener('online', resume);
     window.addEventListener('offline', resume);

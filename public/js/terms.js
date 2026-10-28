@@ -140,5 +140,4 @@
   updateButtons(); refresh();
   window.addEventListener('focus', refresh);
   document.addEventListener('visibilitychange', () => { if (!document.hidden) refresh(); });
-  setInterval(() => { if (!document.hidden) refresh(); }, 60000);
 })();

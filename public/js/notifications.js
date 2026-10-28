@@ -1,4 +1,4 @@
-/* Persistent in-app inbox, refreshed by SSE and the existing reconnect/poll loop. */
+/* Persistent in-app inbox, refreshed by change events and reconnect catch-up. */
 window.KagopitaNotifications = (() => {
   let userId = null, requestId = 0, highestSeen = null, notifications = [], toastTimer, page = 1, totalPages = 1, unread = 0, latestId = 0, total = 0;
   const element = id => document.getElementById(id);
