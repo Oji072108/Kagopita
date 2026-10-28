@@ -88,9 +88,9 @@ npm start
 
 ただし、他のリストやアカウントには影響しません。
 
-リストの変更は、Server-Sent Events（SSE）によって、接続中のメンバーにリアルタイムで反映されます。商品・チェック状態・お気に入り・メンバーの変更はページの再読み込みなしで更新され、再接続時やアプリに戻ったときも自動で同期します。イベント配信が利用できない場合に備えて、表示中は15秒ごとにも同期します。また、各リストには最新100件の履歴が保存されます。
+リストの変更は、Server-Sent Events（SSE）によって、接続中のメンバーにリアルタイムで反映されます。商品・チェック状態・お気に入り・メンバーの変更はページの再読み込みなしで更新され、再接続時やアプリに戻ったときも自動で同期します。定期ポーリングは行いません。SSE非対応のブラウザでは、アプリに戻るかページを再読み込みすると最新の状態になります。利用規約も定期確認せず、初回表示・アプリ復帰・必要な操作時に確認します。また、各リストには最新100件の履歴が保存されます。
 
-リアルタイム更新の結合テスト: `node scripts/test-live-updates-ui.cjs`（Playwrightが必要）。一時データベースと専用サーバーを使用し、別ユーザー間の更新、切断・再接続、サーバー再起動、ポーリングへのフォールバックを検証します。
+リアルタイム更新の結合テスト: `node scripts/test-live-updates-ui.cjs`（Playwrightが必要）。一時データベースと専用サーバーを使用し、別ユーザー間の更新、切断・再接続、サーバー再起動、定期ポーリングの不使用と復帰時の同期を検証します。
 
 ## データの保存とバックアップ
 
@@ -213,7 +213,7 @@ Run `NODE_PATH=<test-env>/node_modules node scripts/test-pwa-ui.cjs` with Playwr
 
 The creator is the permanent **作成者（オーナー）**. Only the creator can appoint **管理者** (delegated administrators). Administrators can edit items and manage ordinary editors/members, but cannot change/remove the creator or appoint/manage other administrators. Ownership is not transferable. Editors manage items; **メンバー** (renamed from viewer) can read and check/uncheck items only. New invitees always start as members, in both guest and account invite flows. The API enforces the same rules as the custom role dropdown. Leaving as the creator, including deleting the creator's account, deletes the list, items, history and list notifications for everyone; leaving as any other role does not. The leave confirmation explains the distinction. Migration preserves existing editors and maps viewers to members, recovering the original creator from retained creation activity where available, otherwise retaining the current owner.
 
-The header bell opens a **menu-style in-app notification drawer**. Other members' item changes create persistent per-recipient notifications. The server returns 10 notifications per page with a global unread badge; there is no automatic 100-row truncation. “Mark all as read” deletes the current user's notifications through the latest observed ID across all pages, not other users' inboxes; concurrent newer arrivals are retained. Notifications remain cleared after restart. The drawer supports bell toggle, close button, outside pointer dismissal and Escape. SSE and polling catch up missed changes. Removed members lose their list notifications. The inbox remains available independently of optional Web Push (see below).
+The header bell opens a **menu-style in-app notification drawer**. Other members' item changes create persistent per-recipient notifications. The server returns 10 notifications per page with a global unread badge; there is no automatic 100-row truncation. “Mark all as read” deletes the current user's notifications through the latest observed ID across all pages, not other users' inboxes; concurrent newer arrivals are retained. Notifications remain cleared after restart. The drawer supports bell toggle, close button, outside pointer dismissal and Escape. SSE change events and reconnect/app-resume catch-up keep the inbox current without periodic polling. Removed members lose their list notifications. The inbox remains available independently of optional Web Push (see below).
 
 Run `NODE_PATH=<test-env>/node_modules node scripts/test-member-roles.cjs` for isolated API and real mobile-browser checks, and `node scripts/test-role-migration.cjs` for previous-schema migration, recorded creator recovery, notification preservation and restart integrity. Neither test touches live accounts or lists.
 
