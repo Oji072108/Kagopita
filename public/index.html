@@ -44,8 +44,9 @@
   <script src="/js/app.js?v=20261028-pwa1" defer></script>
   <script src="/js/custom-select.js?v=20261028-terms4" defer></script>
   <link rel="stylesheet" href="/css/dark-mode.css?v=20261028-terms4">
-  <link rel="stylesheet" href="/css/pwa.css?v=20261028-pwa1">
-  <script src="/js/pwa.js?v=20261028-pwa1" defer></script>
+  <link rel="stylesheet" href="/css/pwa.css?v=20261028-menu3">
+  <link rel="stylesheet" href="/css/polish.css?v=20261028-polish2">
+  <script src="/js/pwa.js?v=20261028-menu3" defer></script>
 </head>
 <body>
   <header class="header">
@@ -66,10 +67,6 @@
   </header>
 
   <main class="main">
-    <div id="pwaInstall" class="pwa-install hidden">
-      <button id="pwaInstallButton" class="btn btn-secondary" type="button">インストール方法</button>
-      <p id="pwaInstallStatus" class="share-message" role="status" aria-live="polite"></p>
-    </div>
     <aside id="termsUpdateNotice" class="terms-update hidden" role="status" aria-live="polite"><div><strong>利用規約を更新しました</strong><p id="termsUpdateSummary" data-i18n-ignore="true"></p></div><button id="termsUpdateRead" class="btn btn-secondary" type="button">変更内容を確認</button><button id="termsUpdateDismiss" class="text-button" type="button">確認済みにする</button></aside>
     <p id="authNotice" class="share-message hidden" role="status" aria-live="polite"></p>
     <section id="noChannels" class="panel hidden">
@@ -475,12 +472,12 @@
 
   <dialog id="pwaInstallDialog" class="share-dialog pwa-install-dialog" aria-labelledby="pwaInstallTitle" aria-describedby="pwaInstallDescription">
     <div class="share-content">
-      <h2 id="pwaInstallTitle" class="panel-title">インストール方法</h2>
+      <h2 id="pwaInstallTitle" class="panel-title" tabindex="-1">インストール方法</h2>
       <p id="pwaInstallDescription">iPhone・iPadへのインストールはSafariで手動で行います。</p>
       <ol class="pwa-install-steps">
         <li>Safariでkagopita.comを開きます。</li>
-        <li>共有ボタン（四角から上向きの矢印）をタップします。</li>
-        <li>「ホーム画面に追加」を選択します。</li>
+        <li><span class="pwa-step-content"><svg class="pwa-step-icon" viewBox="0 0 32 36" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M10 13H7a4 4 0 0 0-4 4v13a4 4 0 0 0 4 4h18a4 4 0 0 0 4-4V17a4 4 0 0 0-4-4h-3M16 23V2m-6 6 6-6 6 6"/></svg><span>共有ボタン（四角から上向きの矢印）をタップします。</span></span></li>
+        <li><span class="pwa-step-content"><svg class="pwa-step-icon" viewBox="0 0 36 36" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="3" y="3" width="30" height="30" rx="9"/><path d="M18 10v16M10 18h16"/></svg><span>「ホーム画面に追加」を選択します。</span></span></li>
         <li>「Webアプリとして開く」が表示された場合はオンにします。</li>
         <li>「追加」をタップします。</li>
       </ol>
@@ -543,6 +540,10 @@
         <button id="menu-share" class="btn btn-secondary" onclick="runNavigationAction('share')"><i class="ph-bold ph-share-network" aria-hidden="true"></i><span>このリストを共有</span></button>
         <button id="nav-members" class="btn btn-secondary" data-menu-tab="members" onclick="runNavigationAction('members')"><i class="ph-bold ph-users" aria-hidden="true"></i><span>メンバー</span></button>
         <button class="btn btn-secondary" type="button" data-menu-tab="account" onclick="runNavigationAction('account')"><i class="ph-bold ph-user-circle" aria-hidden="true"></i><span>アカウント</span></button>
+        <div id="pwaInstall" class="pwa-install hidden">
+          <button id="pwaInstallButton" class="btn btn-secondary" type="button"><i class="ph-bold ph-download-simple" aria-hidden="true"></i><span id="pwaInstallLabel">インストール方法</span></button>
+          <p id="pwaInstallStatus" class="share-message" role="status" aria-live="polite"></p>
+        </div>
         <div class="navigation-divider" aria-hidden="true"></div>
         <button id="nav-complete" class="btn btn-secondary" data-menu-tab="complete" onclick="runNavigationAction('complete')"><i class="ph-bold ph-check-circle" aria-hidden="true"></i><span>買い物を完了</span></button>
       </div>

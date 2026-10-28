@@ -184,12 +184,18 @@ To notify both guests and account holders of an update, edit `terms.json`, give 
 
 Run `node scripts/test-terms.cjs` for isolated API/database checks. With Playwright available separately, run `NODE_PATH=<test-env>/node_modules node scripts/test-terms-ui.cjs` for browser checks using API fixtures. No live email or user data is used by these checks.
 
+### UI polish
+
+- Shared button, form, dialog and navigation refinements support light/dark themes, keyboard focus and reduced motion.
+- Installation is a single entry in the existing header menu; the guide restores menu focus on close.
+- Responsive UI sweep: `NODE_PATH=/path/to/playwright/node_modules KAGOPITA_TEST_URL=http://127.0.0.1:3001 node scripts/test-ui-polish.cjs` (use an isolated test server, not production).
+
 ### PWA installation
 
 Kagopita can be installed as a standalone web app. `public/manifest.webmanifest` uses the existing cart branding, with checked-in 192×192 and 512×512 PNGs. No new runtime dependency is required. To regenerate only these icons, run `scripts/generate-pwa-icons.cjs` with the same optional build-time `sharp` tooling used for existing brand assets.
 
 - **Android:** “Install Kagopita” appears only after the browser supplies `beforeinstallprompt`. It opens the browser's native prompt, hides after installation, and waits for a new eligible event after dismissal. Browser eligibility/engagement rules still apply.
-- **iPhone/iPad:** “How to Install” opens text-only Safari instructions, including desktop-UA iPadOS detection. Installation is manual using **Share → Add to Home Screen → Open as Web App (if offered) → Add**. Instructions use the existing language system, including Japanese and English.
+- **iPhone/iPad:** “How to Install” in the header menu opens Safari instructions with outlined Share and Add to Home Screen symbols, including desktop-UA iPadOS detection. Installation is manual using **Share → Add to Home Screen → Open as Web App (if offered) → Add**. Instructions use the existing language system, including Japanese and English.
 - Desktop and already-standalone windows do not show installation controls. The install modal supports Escape, a Close button, focus return, mobile scrolling, and the existing themes.
 - `public/sw.js` registers only in a secure context (HTTPS, or localhost for development). Its cache is restricted to the two public icons and the generic bilingual offline page. It does **not** cache authenticated HTML, JavaScript/CSS, API responses, session information, or shopping data. Shopping operations still require an internet connection. All app navigations try the network first, so deployments are not pinned to an old cached app shell.
 - The existing Express server serves the manifest, icons and worker. The worker route disables HTTP caching for update checks. No changes to VPS configuration, `.env`, or deployment automation are required. Production must serve HTTPS and allow `/manifest.webmanifest`, `/sw.js`, `/offline.html`, and `/icons/` from the same origin.
