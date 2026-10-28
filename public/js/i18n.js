@@ -1,5 +1,7 @@
 /* Canonical Japanese keys, translated consistently for static and rebuilt controls. */
 window.kagopitaLocaleRows = [
+['しばらくお待ちください。', 'Please wait a moment.', '잠시만 기다려 주세요.', '请稍候。', 'Espera un momento.'],
+['処理に30秒以上かかったため、待機を中止しました。最新の状態を確認してから、もう一度お試しください。', 'This action took longer than 30 seconds, so we stopped waiting. Check the latest state before trying again.', '처리가 30초를 초과하여 대기를 중단했습니다. 최신 상태를 확인한 후 다시 시도하세요.', '操作超过30秒，已停止等待。请确认最新状态后重试。', 'La acción tardó más de 30 segundos y dejamos de esperar. Comprueba el estado actual antes de reintentarlo.'],
 ["Kagopitaをインストール", "Install Kagopita", "Kagopita 설치", "安装Kagopita", "Instalar Kagopita"],
 ["インストール方法", "How to Install", "설치 방법", "安装方法", "Cómo instalar"],
 ["iPhone・iPadへのインストールはSafariで手動で行います。", "Installation on iPhone or iPad must be completed manually in Safari.", "iPhone・iPad에서는 Safari에서 직접 설치해야 합니다.", "iPhone或iPad需在Safari中手动安装。", "En iPhone o iPad, la instalación se realiza manualmente en Safari."],

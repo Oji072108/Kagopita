@@ -136,34 +136,40 @@ document.documentElement.lang = savedLanguage;
 applyLanguage(savedLanguage);
 
 async function api(url, options = {}) {
-  let response;
-  try {
-    response = await fetch(url, options);
-  } catch (error) {
-    if (error instanceof TypeError) {
-      throw new Error('サーバーに接続できません。サーバーが起動しているか、表示中のURLとポートをご確認ください。');
+  return window.KagopitaActions.request(async signal => {
+    let response;
+    try {
+      response = await fetch(url, { ...options, signal });
+    } catch (error) {
+      if (error instanceof TypeError) {
+        throw new Error('サーバーに接続できません。サーバーが起動しているか、表示中のURLとポートをご確認ください。');
+      }
+      throw error;
     }
-    throw error;
-  }
 
-  if (!response.ok) {
-    const data = await response.json().catch(() => ({}));
-    if (response.status === 401 && currentUser) {
-      resetSignedOutState();
-      $('noChannels').classList.remove('hidden');
-      $('noChannelsTitle').textContent = translateFeature('ログイン');
-      $('noChannelsMessage').textContent = data.error || '';
-      $('noChannelsCreateButton').classList.add('hidden');
-      showWelcomeMode('login');
+    signal.throwIfAborted();
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}));
+      signal.throwIfAborted();
+      if (response.status === 401 && currentUser) {
+        resetSignedOutState();
+        $('noChannels').classList.remove('hidden');
+        $('noChannelsTitle').textContent = translateFeature('ログイン');
+        $('noChannelsMessage').textContent = data.error || '';
+        $('noChannelsCreateButton').classList.add('hidden');
+        showWelcomeMode('login');
+      }
+      const error = new Error(data.error || (response.status === 401
+        ? '利用状態を確認できません。画面を更新するか、招待リンクから参加し直してください。'
+        : `通信に失敗しました（応答番号：${response.status}）。`));
+      error.status = response.status;
+      if (data.code === 'TERMS_ACCEPTANCE_REQUIRED') await window.KagopitaTerms?.refresh();
+      throw error;
     }
-    const error = new Error(data.error || (response.status === 401
-      ? '利用状態を確認できません。画面を更新するか、招待リンクから参加し直してください。'
-      : `通信に失敗しました（応答番号：${response.status}）。`));
-    error.status = response.status;
-    if (data.code === 'TERMS_ACCEPTANCE_REQUIRED') await window.KagopitaTerms?.refresh();
-    throw error;
-  }
-  return response.json();
+    const data = await response.json();
+    signal.throwIfAborted();
+    return data;
+  }, { signal: options.signal });
 }
 
 async function acceptInviteFromUrl() {
@@ -966,7 +972,7 @@ $('copyShareLink').addEventListener('click', async () => {
   const link = $('shareLink');
   const message = $('shareMessage');
   try {
-    await navigator.clipboard.writeText(link.value);
+    await window.KagopitaActions.request(() => navigator.clipboard.writeText(link.value));
     message.textContent = '招待リンクをコピーしました。参加してほしい人に送ってください。';
   } catch (error) {
     console.error('招待リンクをコピーできませんでした。', error);
@@ -1158,7 +1164,7 @@ $('profileForm').addEventListener('submit', async event => {
   const button = event.currentTarget.querySelector('[type="submit"]');
   button.disabled = true;
   try {
-    const avatar = await readAvatarFile($('profileAvatar').files[0]);
+    const avatar = await window.KagopitaActions.request(() => readAvatarFile($('profileAvatar').files[0]));
     const { username, avatar: savedAvatar } = await api('/api/profile', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -1435,6 +1441,7 @@ function renderNavigationShortcuts() {
     button.classList.toggle('active', key === currentTab);
     if (key === currentTab) button.setAttribute('aria-current', 'page');
     else button.removeAttribute('aria-current');
+    button.dataset.navigationAction = key;
     button.onclick = () => runNavigationAction(key);
   });
 }

@@ -57,9 +57,13 @@
     if (loading) return loading;
     loading = (async () => {
       try {
-        const response = await fetch('/api/terms', { cache: 'no-store' });
-        if (!response.ok) throw Error('Terms unavailable');
-        const next = await response.json();
+        const next = await window.KagopitaActions.request(async signal => {
+          const response = await fetch('/api/terms', { cache: 'no-store', signal });
+          if (!response.ok) throw Error('Terms unavailable');
+          const data = await response.json();
+          signal.throwIfAborted();
+          return data;
+        });
         if (!next.version || !Array.isArray(next.sections)) throw Error('Invalid terms');
         const changed = terms && terms.version !== next.version;
         terms = next;
@@ -78,9 +82,14 @@
   }
   async function open(key = null) {
     previousFocus = document.activeElement;
-    await refresh();
-    if (!terms) return;
-    origin = key; renderDocument(); dialog.showModal(); documentView.scrollTop = 0; requestAnimationFrame(checkEnd);
+    try {
+      await window.KagopitaActions.request(async signal => {
+        await refresh();
+        signal.throwIfAborted();
+        if (!terms) return;
+        origin = key; renderDocument(); dialog.showModal(); documentView.scrollTop = 0; requestAnimationFrame(checkEnd);
+      });
+    } catch { /* The shared timeout notice explains how to retry. */ }
   }
   for (const block of blocks) {
     block.querySelector('.terms-open').addEventListener('click', () => open(block.dataset.termsConsent));
@@ -102,7 +111,7 @@
   byId('termsUpdateDismiss').addEventListener('click', async () => {
     if (!terms) return;
     try {
-      const response = await fetch('/api/terms/seen', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ version: terms.version }) });
+      const response = await window.KagopitaActions.request(signal => fetch('/api/terms/seen', { signal, method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ version: terms.version }) }));
       if (!response.ok) { await refresh(); return; }
       byId('termsUpdateNotice').classList.add('hidden');
     } catch { /* Leave the notice visible so it can be retried. */ }

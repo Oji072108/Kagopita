@@ -5,12 +5,12 @@ window.KagopitaLiveUpdates = (() => {
   function schedule() {
     if (!refresh) return;
     pending = true;
-    if (document.hidden || document.querySelector('dialog[open]') || running || timer) return;
+    if (document.hidden || document.querySelector('dialog[open]') || window.KagopitaActions?.busy || running || timer) return;
     timer = setTimeout(flush, 100);
   }
   async function flush() {
     timer = null;
-    if (!refresh || document.hidden || document.querySelector('dialog[open]')) return;
+    if (!refresh || document.hidden || document.querySelector('dialog[open]') || window.KagopitaActions?.busy) return;
     const version = generation;
     pending = false; running = true;
     try { await refresh(); }
@@ -39,6 +39,7 @@ window.KagopitaLiveUpdates = (() => {
     window.removeEventListener('online', resume);
     document.removeEventListener('visibilitychange', resume);
     document.removeEventListener('close', resume, true);
+    document.removeEventListener('kagopita:idle', resume);
   }
   function start(onRefresh, onRemoved) {
     if (refresh) return;
@@ -55,6 +56,7 @@ window.KagopitaLiveUpdates = (() => {
     window.addEventListener('online', resume);
     document.addEventListener('visibilitychange', resume);
     document.addEventListener('close', resume, true);
+    document.addEventListener('kagopita:idle', resume);
     schedule();
   }
   return { start, stop };

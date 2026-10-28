@@ -184,6 +184,13 @@ To notify both guests and account holders of an update, edit `terms.json`, give 
 
 Run `node scripts/test-terms.cjs` for isolated API/database checks. With Playwright available separately, run `NODE_PATH=<test-env>/node_modules node scripts/test-terms-ui.cjs` for browser checks using API fixtures. No live email or user data is used by these checks.
 
+### Loading and request deadlines
+
+- User-triggered network actions show a themed spinner and temporarily block page interactions, including keyboard and duplicate form submissions. Control disabled states and drafts are preserved.
+- **List and Members navigation have no loading overlay or interaction lock.** Instant local controls use only press feedback. Background updates remain non-blocking.
+- Requests (including reading response bodies) stop waiting after 30 seconds. A sequence of requests from one action shares that deadline. Timeouts abort browser fetches, unlock the UI, and show a translated error; no automatic mutation retry is attempted. A server may already have applied a change before cancellation, so users are told to check the latest state before retrying.
+- Run `NODE_PATH=<test-env>/node_modules KAGOPITA_TEST_URL=http://127.0.0.1:3001 node scripts/test-loading-ui.cjs` against an isolated test server. This includes a real 30-second timeout and virtual-time tests for chained requests and slow response bodies.
+
 ### UI polish
 
 - Shared button, form, dialog and navigation refinements support light/dark themes, keyboard focus and reduced motion.

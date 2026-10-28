@@ -39,15 +39,26 @@
     }
     if (!android || !deferredPrompt) return;
     const prompt = deferredPrompt;
+    const restoreMenu = document.getElementById('navigationDialog').classList.contains('is-open');
     busy = true; update();
     try {
-      await prompt.prompt();
-      const choice = await prompt.userChoice;
+      const choice = await window.KagopitaActions.request(async signal => {
+        await prompt.prompt();
+        signal.throwIfAborted();
+        const result = await prompt.userChoice;
+        signal.throwIfAborted();
+        return result;
+      });
       if (choice.outcome === 'accepted') installed = true;
     } catch {
       // A browser can withdraw a one-shot prompt; wait for a new eligible event.
     } finally {
       deferredPrompt = null; busy = false; update();
+      if (restoreMenu && !standalone()) {
+        const restore = () => { if (!standalone() && !document.getElementById('nav-menu').classList.contains('hidden')) window.openNavigationMenu(); };
+        if (window.KagopitaActions.busy) document.addEventListener('kagopita:idle', restore, { once: true });
+        else restore();
+      }
     }
   });
   document.getElementById('pwaInstallClose').addEventListener('click', () => dialog.close());
