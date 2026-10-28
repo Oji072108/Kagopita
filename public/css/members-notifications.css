@@ -47,3 +47,28 @@
 @media (max-width:360px) { .member-row { padding:12px; gap:8px; flex-wrap:wrap; } .member-role-controls { flex-basis:100%; max-width:100%; flex-direction:row; } .member-role-controls .custom-select { flex:1; } .member-role-controls .kick-button { flex-shrink:0; } }
 @media (prefers-reduced-motion:reduce) { .notifications-dialog { transition:none; } }
 .notification-pagination { position:sticky; bottom:-18px; padding-bottom:12px; background:var(--surface); }
+
+/* The button mirrors the drawer state, including outside-click and Escape closes. */
+.notification-bell {
+  transition: background-color .18s ease, color .18s ease, box-shadow .18s ease;
+}
+.notification-bell > i { display:inline-block; transform-origin:50% 15%; }
+.notification-bell:active > i { transform:scale(.88); }
+.notification-bell[aria-expanded="true"] {
+  background:var(--primary-light);
+  color:var(--primary-dark);
+  border-color:var(--primary-dark);
+  box-shadow:0 0 0 3px color-mix(in srgb, var(--primary-light) 45%, transparent);
+}
+.notification-bell[aria-expanded="true"] > i { animation:notification-bell-ring .48s ease-out; }
+@keyframes notification-bell-ring {
+  0%, 100% { transform:rotate(0); }
+  20% { transform:rotate(18deg); }
+  40% { transform:rotate(-15deg); }
+  60% { transform:rotate(10deg); }
+  80% { transform:rotate(-5deg); }
+}
+@media (prefers-reduced-motion:reduce) {
+  .notification-bell { transition:none; }
+  .notification-bell[aria-expanded="true"] > i { animation:none; }
+}

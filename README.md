@@ -216,3 +216,12 @@ The creator is the permanent **作成者（オーナー）**. Only the creator c
 The header bell opens a **menu-style in-app notification drawer**. Other members' item changes create persistent per-recipient notifications. The server returns 10 notifications per page with a global unread badge; there is no automatic 100-row truncation. “Mark all as read” deletes the current user's notifications through the latest observed ID across all pages, not other users' inboxes; concurrent newer arrivals are retained. Notifications remain cleared after restart. The drawer supports bell toggle, close button, outside pointer dismissal and Escape. SSE and polling catch up missed changes. Removed members lose their list notifications. This is not closed-app OS push.
 
 Run `NODE_PATH=<test-env>/node_modules node scripts/test-member-roles.cjs` for isolated API and real mobile-browser checks, and `node scripts/test-role-migration.cjs` for previous-schema migration, recorded creator recovery, notification preservation and restart integrity. Neither test touches live accounts or lists.
+
+
+## AdSense preparation
+
+The main app includes one official AdSense publisher loader for `ca-pub-5805938506004625`. Three labeled responsive containers sit below the header, below the shopping-list content, and at the bottom of the main content, outside fixed navigation and input controls. No ads or placeholder ads are supplied. Unconfigured/loading/unfilled containers collapse without consuming space.
+
+Actual ads are **not live**: approval of kagopita.com by Google AdSense and valid responsive Display ad slot IDs are still required. In `public/js/ads.js`, replace the empty strings in `slots` with the real IDs for this publisher. Never invent IDs. Units initialize once when their placement is visible; no automatic refresh or ad interactions are implemented. Check the site's AdSense account for approval, consent and ads.txt requirements before enabling units. Keep any AdSense Auto ads setting consistent with the desired manual placements; Auto ads are controlled separately by Google.
+
+Verify the loader occurs only once, the slots remain empty until issued by Google, and all three containers are hidden without slots. Verify 320px, tablet and desktop widths in both themes and exercise shopping-list navigation and CRUD using isolated test data.

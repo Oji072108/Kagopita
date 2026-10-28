@@ -39,7 +39,34 @@
 /* Make selected destinations read as a single, calm navigation system. */
 .bottom-nav { box-shadow: 0 -4px 20px #183d2208; }
 .nav-item { color: #9aa49c; justify-content: center; transition: background .16s ease, color .16s ease; }
-.nav-item.active { background: transparent; color: var(--primary); }
+.bottom-nav-links { position: relative; isolation: isolate; }
+.bottom-nav-links::before {
+  content: "";
+  position: absolute;
+  top: var(--selection-y, 0px);
+  left: 0;
+  width: var(--selection-width, 0px);
+  height: var(--selection-height, 0px);
+  transform: translateX(var(--selection-x, 0px));
+  border-radius: 12px;
+  background: var(--primary-light);
+  box-shadow: inset 0 3px 0 var(--primary);
+  opacity: var(--selection-visible, 0);
+  pointer-events: none;
+  z-index: -1;
+}
+.bottom-nav-links.selection-ready::before {
+  transition: transform .26s cubic-bezier(.22, 1, .36, 1), width .26s ease, height .26s ease, opacity .16s ease;
+}
+.nav-item.active { background: transparent; color: var(--primary-dark); }
+/* Add is a destination, so reserve its green emphasis for the selected state. */
+#nav-add { color: #9aa49c; }
+#nav-add i { background: transparent; color: inherit; }
+#nav-add.active { color: var(--primary-dark); }
+.dark-mode #nav-add:not(.active) span { color: inherit; }
+@media (hover: hover) {
+  .nav-item.active:not(:disabled):hover { background: transparent; }
+}
 .nav-item.active span, .dark-mode .nav-item.active span { color: inherit; }
 .header-navigation { box-shadow: 0 16px 48px #102b2424, 0 2px 6px #102b240c; }
 .header-navigation .dialog-title-row { padding: 2px 10px 0; }
@@ -69,3 +96,41 @@ dialog::backdrop { background: #12231acc; backdrop-filter: blur(3px); }
 
 /* Keep the current Add destination legible while repeat taps are disabled. */
 #nav-add.active:disabled { opacity: 1; cursor: default; }
+
+/* Shared press feedback complements each control's persistent selected state. */
+:where(button, [role="button"], input[type="button"], input[type="submit"], input[type="reset"]) {
+  -webkit-tap-highlight-color: transparent;
+}
+:where(button, [role="button"], input[type="button"], input[type="submit"], input[type="reset"]):not(:disabled):not([aria-disabled="true"]):active {
+  filter: brightness(.84);
+}
+/* Share and the inbox use the same header-button palette in both themes. */
+.header-actions #shareButton {
+  background: transparent;
+  color: inherit;
+  border: 1px solid currentColor;
+  transition: background-color .18s ease, color .18s ease, box-shadow .18s ease;
+}
+.header-actions #shareButton[aria-expanded="true"] {
+  background: var(--primary-light);
+  color: var(--primary-dark);
+  border-color: var(--primary-dark);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary-light) 45%, transparent);
+}
+@media (prefers-reduced-motion: reduce) {
+  .header-actions #shareButton { transition: none; }
+}
+.dark-mode .header-actions #shareButton:not([aria-expanded="true"]) { border-color: var(--border); }
+
+/* Semantic icon motion stays inside each tab; labels and hit areas never bounce. */
+.bottom-nav .nav-item i[data-nav-motion] { display: inline-flex; width: 1em; height: 1em; }
+.bottom-nav .nav-item i[data-nav-motion]::before { display: none; }
+.bottom-nav .nav-item i[data-nav-motion] svg { width: 100%; height: 100%; overflow: visible; }
+.bottom-nav [data-motion="plus"] { transform-box: fill-box; transform-origin: center; }
+.bottom-nav [data-motion="lid"] { transform-box: view-box; transform-origin: 50% 83.333%; fill: var(--primary-light); }
+.bottom-nav .active [data-motion="lid"] { transform: rotateX(-28deg); }
+/* The old Add glyph badge padding must not shrink its SVG drawing area. */
+.bottom-nav #nav-add i[data-nav-motion] { padding: 0; }
+
+/* The account arm waves from its shoulder, not around a symmetrical head. */
+.bottom-nav [data-motion="wave"] { transform-box: view-box; transform-origin: 15.5px 18px; }
