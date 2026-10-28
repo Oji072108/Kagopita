@@ -2,9 +2,10 @@
 window.KagopitaPush = (() => {
   const byId = id => document.getElementById(id);
   const button = byId('pushToggle'), test = byId('pushTest'), status = byId('pushStatus');
+  const language = () => window.KagopitaNotificationText.language(localStorage.getItem('kagopita-language'));
   const tr = text => typeof translateFeature === 'function' ? translateFeature(text) : text;
-  const ios = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-  const standalone = () => matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+  const display = matchMedia('(display-mode: standalone)');
+  const standalone = () => display.matches || navigator.standalone === true;
   const supported = () => isSecureContext && 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
   const offer = byId('pushPermissionDialog');
   let offerTimer;
@@ -19,19 +20,22 @@ window.KagopitaPush = (() => {
     return result;
   }
   function render(message) {
-    byId('pushSettings').hidden = !userId;
-    byId('pushMenuButton').hidden = !userId;
+    byId('pushSettings').hidden = !userId || !standalone();
+    byId('pushMenuButton').hidden = !userId || !standalone();
+    if (!standalone()) {
+      clearTimeout(offerTimer);
+      if (offer.open) offer.close();
+    }
     const denied = supported() && Notification.permission === 'denied';
     byId('pushPermissionHelp').hidden = !denied;
     byId('pushPermissionHelp').open = denied;
-    byId('pushRecheck').hidden = !userId || !supported() || (ios && !standalone()) || (!denied && config !== null);
+    byId('pushRecheck').hidden = !userId || !supported() || !standalone() || (!denied && config !== null);
     byId('pushRecheck').disabled = busy;
     button.textContent = tr(enabled ? 'この端末の通知をオフにする' : 'この端末の通知をオンにする');
     button.setAttribute('aria-pressed', String(enabled));
-    button.disabled = busy || !config || !supported() || (ios && !standalone()) || (!enabled && Notification.permission === 'denied');
+    button.disabled = busy || !config || !supported() || !standalone() || (!enabled && Notification.permission === 'denied');
     test.hidden = !enabled; test.disabled = busy || !enabled;
     const text = !isSecureContext ? '通知はHTTPSのサイトで設定してください。' :
-      ios && !standalone() ? 'iPhone・iPadはホーム画面に追加し、追加したアプリを開いて通知を有効にしてください（iOS 16.4以降）。' :
       !supported() ? 'このブラウザはプッシュ通知に対応していません。' :
       Notification.permission === 'denied' ? '通知がブロックされています。端末またはブラウザの設定で許可してください。' :
       enabled ? 'この端末の通知はオンです。他の端末でも個別に有効にしてください。' :
@@ -40,14 +44,14 @@ window.KagopitaPush = (() => {
   }
   async function refresh() {
     if (!userId || busy || pending) { render(); return; }
-    if (!supported() || (ios && !standalone())) { render(); return; }
+    if (!standalone() || !supported()) { render(); return; }
     const version = generation;
     pending = (async () => {
       try {
         config = await request('config', null, 'GET');
         registration = await navigator.serviceWorker.register('/sw.js', { scope: '/', updateViaCache: 'none' });
         const subscription = await registration.pushManager.getSubscription();
-        const state = subscription ? await request('status', { endpoint: subscription.endpoint }) : { enabled: false };
+        const state = subscription ? await request('status', { endpoint: subscription.endpoint, language: language() }) : { enabled: false };
         if (version !== generation) return;
         enabled = state.enabled;
         if (enabled && Notification.permission === 'denied') {
@@ -56,6 +60,7 @@ window.KagopitaPush = (() => {
         }
         render();
         scheduleOffer();
+        syncLanguage();
       } catch {
         if (version === generation) { config = null; render(tr('通知を設定できませんでした。もう一度お試しください。')); }
       } finally { pending = null; }
@@ -70,7 +75,7 @@ window.KagopitaPush = (() => {
     render(); if (id) refresh();
   }
   async function toggle() {
-    if (busy || !userId || !config || !supported()) return;
+    if (busy || !userId || !config || !standalone() || !supported()) return;
     // Permission must be requested before any await, especially on iOS.
     rememberOffer();
     const permission = !enabled && Notification.permission === 'default' ? Notification.requestPermission() : Promise.resolve(Notification.permission);
@@ -92,8 +97,9 @@ window.KagopitaPush = (() => {
       } else {
         const key = Uint8Array.from(atob(config.publicKey.replace(/-/g, '+').replace(/_/g, '/')), c => c.charCodeAt(0));
         subscription ||= await registration.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: key });
-        await request('subscriptions', { subscription: subscription.toJSON() });
+        await request('subscriptions', { subscription: subscription.toJSON(), language: language() });
         enabled = true;
+        syncLanguage();
       }
       render();
     } catch { render(tr('通知を設定できませんでした。もう一度お試しください。')); }
@@ -101,7 +107,7 @@ window.KagopitaPush = (() => {
   }
   button.addEventListener('click', toggle);
   test.addEventListener('click', async () => {
-    if (busy || !enabled) return;
+    if (busy || !enabled || !standalone()) return;
     busy = true; render();
     try {
       const subscription = await registration.pushManager.getSubscription();
@@ -123,9 +129,10 @@ window.KagopitaPush = (() => {
   }
   function scheduleOffer() {
     clearTimeout(offerTimer);
+    if (!standalone()) return;
     offerTimer = setTimeout(() => {
       if (!userId || enabled || busy || !config || !supported() || document.hidden ||
-          (ios && !standalone()) || Notification.permission === 'denied' ||
+          !standalone() || Notification.permission === 'denied' ||
           document.querySelector('dialog[open]') || byId('navigationDialog').classList.contains('is-open') ||
           document.activeElement?.matches('input, textarea, select')) return;
       try { if (localStorage.getItem('kagopita-push-offer:' + userId)) return; } catch { return; }
@@ -137,6 +144,7 @@ window.KagopitaPush = (() => {
   byId('pushOfferEnable').addEventListener('click', () => { offer.close(); toggle(); });
   offer.addEventListener('close', () => { if (userId) byId('nav-menu').focus({preventScroll:true}); });
   byId('pushMenuButton').addEventListener('click', async () => {
+    if (!standalone()) return;
     rememberOffer(); clearTimeout(offerTimer);
     if (offer.open) offer.close();
     window.closeNavigationMenu();
@@ -149,6 +157,24 @@ window.KagopitaPush = (() => {
   document.addEventListener('close', event => { if (event.target !== offer) scheduleOffer(); }, true);
   document.addEventListener('kagopita:idle', scheduleOffer);
   window.addEventListener('focus', () => { if (userId) refresh(); });
+  display.addEventListener('change', () => { render(); if (standalone() && userId) refresh(); });
   document.addEventListener('visibilitychange', () => { if (!document.hidden && userId) refresh(); });
-  return { setUser, render, clear };
+  let languagePending = false, languageDirty = false;
+  async function syncLanguage() {
+    languageDirty = true;
+    if (languagePending || !userId || !enabled || !registration || !standalone()) return;
+    languagePending = true;
+    const version = generation;
+    try {
+      while (languageDirty && version === generation && userId && enabled) {
+        languageDirty = false;
+        const subscription = await registration.pushManager.getSubscription();
+        if (!subscription || version !== generation) break;
+        await request('status', {endpoint: subscription.endpoint, language: language()});
+      }
+    } catch { /* A later focus/refresh retries without interrupting language selection. */ }
+    finally { languagePending = false; }
+  }
+  window.addEventListener('storage', event => { if (event.key === 'kagopita-language') syncLanguage(); });
+  return { setUser, render, clear, syncLanguage };
 })();

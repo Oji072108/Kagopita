@@ -3,6 +3,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const webpush = require('web-push');
 const { db } = require('./database');
+const notificationText = require('./public/js/notification-text');
 const dataDir = process.env.KAGOPITA_DATA_DIR || path.join(__dirname, 'data');
 const keyPath = path.join(dataDir, 'web-push-vapid.json');
 let keys;
@@ -34,6 +35,9 @@ db.exec(`
     UNIQUE(device_id, notification_id)
   );
 `);
+// Additive migration keeps existing device registrations and queued work intact.
+if (!db.prepare('PRAGMA table_info(push_devices)').all().some(column => column.name === 'language'))
+  db.exec("ALTER TABLE push_devices ADD COLUMN language TEXT NOT NULL DEFAULT 'ja'");
 function validSubscription(value) {
   if (!value || typeof value.endpoint !== 'string' || value.endpoint.length > 2048) return false;
   let url;
@@ -65,7 +69,7 @@ async function flush() {
     const time = Date.now();
     db.prepare('DELETE FROM push_devices WHERE session_hash IN (SELECT token_hash FROM sessions WHERE expires_at <= ?)').run(time);
     db.prepare('DELETE FROM push_queue WHERE created_at < ?').run(time - 24 * 60 * 60 * 1000);
-    const jobs = db.prepare(`SELECT q.*, d.endpoint, d.p256dh, d.auth, d.user_id, d.session_hash
+    const jobs = db.prepare(`SELECT q.*, d.endpoint, d.p256dh, d.auth, d.user_id, d.session_hash, d.language
       FROM push_queue q JOIN push_devices d ON d.id = q.device_id
       JOIN sessions s ON s.token_hash = d.session_hash AND s.user_id = d.user_id
       WHERE q.next_at <= ? AND s.expires_at > ? ORDER BY q.id LIMIT 20`).all(time, time);
@@ -75,13 +79,12 @@ async function flush() {
         .get(job.device_id, job.session_hash, job.user_id, Date.now());
       if (!live) continue;
       // Recheck membership immediately before sending. Never deliver to a former member.
-      const entry = job.notification_id && db.prepare(`SELECT n.id FROM notifications n
+      const entry = job.notification_id && db.prepare(`SELECT n.* FROM notifications n
         JOIN channel_members m ON m.channel_id = n.channel_id AND m.user_id = n.user_id
         WHERE n.id = ? AND n.user_id = ?`).get(job.notification_id, job.user_id);
       if (job.notification_id && !entry) { db.prepare('DELETE FROM push_queue WHERE id = ?').run(job.id); continue; }
       const payload = JSON.stringify({
-        title: 'カゴピタ',
-        body: job.notification_id ? '共有リストが更新されました。タップして確認してください。' : 'プッシュ通知を受信できました。',
+        ...notificationText.format(entry || null, job.language),
         tag: 'kagopita-' + (job.notification_id || 'test-' + job.id)
       });
       try {
@@ -115,6 +118,8 @@ function routes(sessionToken) {
     const found = typeof req.body?.endpoint === 'string' && db.prepare(
       'SELECT id FROM push_devices WHERE endpoint = ? AND user_id = ? AND session_hash = ?'
     ).get(req.body.endpoint, req.user.id, req.pushSession);
+    if (found && req.body.language !== undefined)
+      db.prepare('UPDATE push_devices SET language = ? WHERE id = ?').run(notificationText.language(req.body.language), found.id);
     res.json({ enabled: Boolean(found) });
   });
   router.post('/subscriptions', (req, res) => {
@@ -130,6 +135,8 @@ function routes(sessionToken) {
       db.prepare('DELETE FROM push_devices WHERE id = ?').run(existing.id);
     db.prepare(`INSERT INTO push_devices (endpoint, p256dh, auth, session_hash, user_id, created_at)
       VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(endpoint) DO NOTHING`).run(value.endpoint, value.keys.p256dh, value.keys.auth, req.pushSession, req.user.id, Date.now());
+    db.prepare('UPDATE push_devices SET language = ? WHERE endpoint = ? AND user_id = ? AND session_hash = ?')
+      .run(notificationText.language(req.body.language), value.endpoint, req.user.id, req.pushSession);
     res.status(201).json({ enabled: true });
   });
   router.delete('/subscriptions', (req, res) => {
