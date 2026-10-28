@@ -260,6 +260,56 @@ if (!configuredCode) fs.writeFileSync(codePath, bootstrapCode, { mode: 0o600 });
 
 migrateLegacyState(bootstrapCode);
 
+// Rebuild the constrained legacy role column without losing memberships.
+if (!db.prepare("SELECT sql FROM sqlite_master WHERE name = 'channel_members'").get().sql.includes("'owner', 'admin'")) {
+  transaction(() => {
+    db.exec(`
+      CREATE TABLE channel_members_roles (
+        channel_id TEXT NOT NULL REFERENCES channels(id) ON DELETE CASCADE,
+        user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        role TEXT NOT NULL CHECK (role IN ('owner', 'admin', 'editor', 'member')),
+        joined_at TEXT NOT NULL,
+        PRIMARY KEY (channel_id, user_id)
+      );
+      INSERT INTO channel_members_roles SELECT channel_id, user_id,
+        CASE role WHEN 'owner' THEN 'owner' WHEN 'admin' THEN 'owner' WHEN 'editor' THEN 'editor' WHEN 'member' THEN 'editor' ELSE 'member' END, joined_at FROM channel_members;
+      DROP TABLE channel_members;
+      ALTER TABLE channel_members_roles RENAME TO channel_members;
+      CREATE INDEX channel_members_user_joined ON channel_members(user_id, joined_at);
+    `);
+  });
+}
+// The creator is permanent; delegated administrators never replace them.
+if (!db.prepare('PRAGMA table_info(channels)').all().some(column => column.name === 'creator_id')) {
+  transaction(() => {
+    db.exec('ALTER TABLE channels ADD COLUMN creator_id TEXT');
+    db.exec(`UPDATE channels SET creator_id = COALESCE(
+      (SELECT a.user_id FROM activity_log a JOIN channel_members m ON m.channel_id = a.channel_id AND m.user_id = a.user_id
+        WHERE a.channel_id = channels.id AND a.action = 'created' ORDER BY a.id LIMIT 1),
+      (SELECT user_id FROM channel_members WHERE channel_id = channels.id AND role = 'owner' LIMIT 1));
+      UPDATE channel_members SET role = 'admin' WHERE role = 'owner' AND user_id != (SELECT creator_id FROM channels WHERE id = channel_id);
+      UPDATE channel_members SET role = 'owner' WHERE user_id = (SELECT creator_id FROM channels WHERE id = channel_id);`);
+  });
+}
+db.exec(`CREATE TRIGGER IF NOT EXISTS channel_creator_on_owner AFTER INSERT ON channel_members
+  WHEN NEW.role = 'owner' BEGIN
+    UPDATE channels SET creator_id = NEW.user_id WHERE id = NEW.channel_id AND creator_id IS NULL;
+  END;`);
+db.exec(`
+  CREATE TABLE IF NOT EXISTS notifications (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    channel_id TEXT NOT NULL REFERENCES channels(id) ON DELETE CASCADE,
+    actor_name TEXT NOT NULL,
+    action TEXT NOT NULL,
+    item TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    read_at TEXT
+  );
+  CREATE INDEX IF NOT EXISTS notifications_user_id ON notifications(user_id, id);
+`);
+
+
 function createSession(userId) {
   const token = crypto.randomBytes(32).toString('hex');
   const expiresAt = Date.now() + 30 * 24 * 60 * 60 * 1000;
@@ -302,7 +352,7 @@ function createChannel(name, userId) {
       .run(channelId, name, timestamp);
     db.prepare(`
       INSERT INTO channel_members (channel_id, user_id, role, joined_at)
-      VALUES (?, ?, 'admin', ?)
+      VALUES (?, ?, 'owner', ?)
     `).run(channelId, userId, timestamp);
     db.prepare(`
       INSERT INTO activity_log (channel_id, user_id, username, action, item, created_at)

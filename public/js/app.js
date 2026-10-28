@@ -5,6 +5,8 @@ let currentChannelId = null;
 let currentMemberRole = null;
 let channels = [];
 let favoritesRequestId = 0;
+const canEditItems = () => ['owner', 'admin', 'editor'].includes(currentMemberRole);
+const memberRoleLabel = role => ({owner: '作成者（オーナー）', admin: '管理者', editor: '編集者', member: 'メンバー'})[role] || 'メンバー';
 
 const $ = id => document.getElementById(id);
 const shoppingLanguage = () => localStorage.getItem('kagopita-language') || 'ja';
@@ -78,6 +80,7 @@ for (const [locale, labels] of Object.entries({
   feedTranslations[locale].recurring = item => `${labels[1]} “${item}”`;
   feedTranslations[locale].archived = labels[2]; feedTranslations[locale].unarchived = labels[3];
 }
+for (const [language, label] of Object.entries({en: 'changed a member’s role', ko: '멤버 권한을 변경했습니다', zh: '更改了成员权限', es: 'cambió el rol de un miembro'})) feedTranslations[language]['role-changed'] = label;
 for (const row of window.kagopitaLocaleRows) {
   ['en','ko','zh','es'].forEach((language, index) => { uiTranslations[language][row[0]] = row[index + 1]; });
 }
@@ -123,6 +126,9 @@ function applyLanguage(language) {
   if (localizationReady && shoppingData) {
     renderShoppingList(shoppingData); renderDeletedItems(shoppingData.deletedItems || []);
   }
+  document.querySelectorAll('[data-member-role]').forEach(element => { element.textContent = translateFeature(memberRoleLabel(element.dataset.memberRole)); });
+  document.querySelectorAll('.member-role-select option').forEach(option => { option.textContent = translateFeature(memberRoleLabel(option.value)); });
+  window.KagopitaNotifications?.render();
   if (localizationReady) { renderJoinedChannels(); updateQuantityPreview('input'); updateQuantityPreview('edit'); }
   if (currentUser) updateAccountStatus(language);
   const trigger = $('languageSelect');
@@ -136,34 +142,40 @@ document.documentElement.lang = savedLanguage;
 applyLanguage(savedLanguage);
 
 async function api(url, options = {}) {
-  let response;
-  try {
-    response = await fetch(url, options);
-  } catch (error) {
-    if (error instanceof TypeError) {
-      throw new Error('サーバーに接続できません。サーバーが起動しているか、表示中のURLとポートをご確認ください。');
+  return window.KagopitaActions.request(async signal => {
+    let response;
+    try {
+      response = await fetch(url, { ...options, signal });
+    } catch (error) {
+      if (error instanceof TypeError) {
+        throw new Error('サーバーに接続できません。サーバーが起動しているか、表示中のURLとポートをご確認ください。');
+      }
+      throw error;
     }
-    throw error;
-  }
 
-  if (!response.ok) {
-    const data = await response.json().catch(() => ({}));
-    if (response.status === 401 && currentUser) {
-      resetSignedOutState();
-      $('noChannels').classList.remove('hidden');
-      $('noChannelsTitle').textContent = translateFeature('ログイン');
-      $('noChannelsMessage').textContent = data.error || '';
-      $('noChannelsCreateButton').classList.add('hidden');
-      showWelcomeMode('login');
+    signal.throwIfAborted();
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}));
+      signal.throwIfAborted();
+      if (response.status === 401 && currentUser) {
+        resetSignedOutState();
+        $('noChannels').classList.remove('hidden');
+        $('noChannelsTitle').textContent = translateFeature('ログイン');
+        $('noChannelsMessage').textContent = data.error || '';
+        $('noChannelsCreateButton').classList.add('hidden');
+        showWelcomeMode('login');
+      }
+      const error = new Error(data.error || (response.status === 401
+        ? '利用状態を確認できません。画面を更新するか、招待リンクから参加し直してください。'
+        : `通信に失敗しました（応答番号：${response.status}）。`));
+      error.status = response.status;
+      if (data.code === 'TERMS_ACCEPTANCE_REQUIRED') await window.KagopitaTerms?.refresh();
+      throw error;
     }
-    const error = new Error(data.error || (response.status === 401
-      ? '利用状態を確認できません。画面を更新するか、招待リンクから参加し直してください。'
-      : `通信に失敗しました（応答番号：${response.status}）。`));
-    error.status = response.status;
-    if (data.code === 'TERMS_ACCEPTANCE_REQUIRED') await window.KagopitaTerms?.refresh();
-    throw error;
-  }
-  return response.json();
+    const data = await response.json();
+    signal.throwIfAborted();
+    return data;
+  }, { signal: options.signal });
 }
 
 async function acceptInviteFromUrl() {
@@ -228,28 +240,33 @@ function updateChannelControls() {
   $('nav-list').disabled = !currentChannelId;
   $('nav-list').classList.toggle('hidden', !currentChannelId);
   document.querySelector('.bottom-nav-links').classList.toggle('without-list', !currentChannelId);
-  $('nav-add').disabled = !currentChannelId;
+  $('nav-add').disabled = !currentChannelId || !canEditItems() || currentTab === 'add';
   $('nav-add').classList.toggle('hidden', !currentChannelId);
+  document.querySelectorAll('[onclick="switchTab(\'add\')"]').forEach(button => { button.disabled = !canEditItems() || (button.id === 'nav-add' && currentTab === 'add'); });
+  $('deletedItemsDetails').classList.toggle('hidden', !canEditItems());
+  if (!canEditItems()) $('itemEditDialog').close();
   $('noChannels').classList.toggle('hidden', !currentUser || channels.length > 0 || ['channels', 'account'].includes(currentTab));
   $('channelViews').classList.toggle('hidden', !currentChannelId || ['channels', 'account'].includes(currentTab));
   $('nav-account').classList.toggle('hidden', !currentUser);
   $('nav-menu').classList.toggle('hidden', !currentUser);
-  $('shareButton').classList.toggle('hidden', currentMemberRole !== 'admin');
-  $('completeShoppingButton').classList.toggle('hidden', currentMemberRole !== 'admin');
-  $('nav-complete').classList.toggle('hidden', currentMemberRole !== 'admin');
-  $('menu-share').classList.toggle('hidden', currentMemberRole !== 'admin');
+  $('shareButton').classList.toggle('hidden', currentMemberRole !== 'owner');
+  $('completeShoppingButton').classList.toggle('hidden', currentMemberRole !== 'owner');
+  $('nav-complete').classList.toggle('hidden', currentMemberRole !== 'owner');
+  $('menu-share').classList.toggle('hidden', currentMemberRole !== 'owner');
   renderNavigationShortcuts();
   renderJoinedChannels();
   const listName = channels.find(c => c.id === currentChannelId)?.name || 'なし';
   $('currentListName').textContent = '使用中: ' + listName;
-  document.querySelector('.actions').classList.toggle('single-action', currentMemberRole !== 'admin');
+  document.querySelector('.actions').classList.toggle('single-action', currentMemberRole !== 'owner');
   syncNavigationMenu();
   if (currentUser && !currentChannelId && ['list', 'add', 'members', 'complete'].includes(currentTab)) switchTab('channels');
-  else if (currentTab === 'complete' && currentMemberRole !== 'admin') switchTab('list');
+  else if (currentTab === 'add' && !canEditItems()) switchTab('list');
+  else if (currentTab === 'complete' && currentMemberRole !== 'owner') switchTab('list');
 }
 
 function resetSignedOutState() {
   window.KagopitaLiveUpdates.stop();
+  window.KagopitaNotifications?.reset();
   shoppingRenderState = '';
   ++channelSelectionVersion;
   currentUser = null;
@@ -269,6 +286,7 @@ async function refreshChannels(preferredId = currentChannelId) {
   if (version !== channelSelectionVersion) return;
   currentUser = data.user;
   channels = data.channels;
+  window.KagopitaNotifications?.refresh(currentUser.id);
   const selected = channels.find(channel => channel.id === preferredId && !channel.archivedAt) || channels.find(channel => !channel.archivedAt) || null;
   currentChannelId = selected?.id || null;
   currentMemberRole = selected?.role || null;
@@ -377,7 +395,7 @@ async function loadShoppingList() {
   try {
     const [data, { members }] = await Promise.all([api(channelUrl('/shopping-list')), api(channelUrl('/members'))]);
     if (requestId !== shoppingRequestId || channelId !== currentChannelId) return false;
-    const renderState = JSON.stringify([data, members]);
+    const renderState = JSON.stringify([data, members, currentMemberRole]);
     if (filterChannelId === channelId && shoppingRenderState === renderState) return true;
     if (filterChannelId !== channelId) {
       $('itemSearch').value = ''; $('categoryFilter').value = ''; $('assignmentFilter').value = '';
@@ -500,7 +518,8 @@ function renderShoppingList(data) {
         remove.innerHTML = '<i class="ph-bold ph-trash"></i>';
         remove.setAttribute('aria-label', `${item.name}を削除`);
         remove.onclick = () => deleteItem(item.id);
-        row.append(check, info, edit, favorite, remove);
+        row.append(check, info);
+        if (canEditItems()) row.append(edit, favorite, remove);
         card.appendChild(row);
       });
       container.appendChild(card);
@@ -713,6 +732,7 @@ function renderFamilyFeed(feed = []) {
       archived: 'リストをアーカイブしました', unarchived: 'アーカイブを解除しました',
       kicked: `「${entry.item}」をリストから退出させました`,
       left: `「${entry.item}」から退出しました`,
+      'role-changed': 'メンバーの権限を変更しました',
       renamed: `名前を変更しました (${entry.item})`
     };
     const language = localStorage.getItem('kagopita-language') || 'ja';
@@ -899,12 +919,14 @@ async function handleResetList() {
 
 async function switchTab(tab) {
   if (!['list', 'add', 'members', 'complete', 'channels', 'account'].includes(tab)) return;
-  if (tab === 'complete' && currentMemberRole !== 'admin') return;
+  if (tab === 'complete' && currentMemberRole !== 'owner') return;
   if (!currentUser) return;
   if (!currentChannelId && ['list', 'add', 'members', 'complete'].includes(tab)) return switchTab('channels');
+  if (tab === 'add' && (!canEditItems() || currentTab === 'add')) return;
   const previousTab = currentTab;
   closeNavigationMenu();
   currentTab = tab;
+  $('nav-add').disabled = !currentChannelId || !canEditItems() || tab === 'add';
   window.scrollTo({top: 0, behavior: 'instant'});
   $('channelViews').classList.toggle('hidden', !currentChannelId || ['channels', 'account'].includes(tab));
   $('noChannels').classList.toggle('hidden', !currentUser || channels.length > 0 || ['channels', 'account'].includes(tab));
@@ -917,7 +939,7 @@ async function switchTab(tab) {
     else nav.removeAttribute('aria-current');
     const icon = nav.querySelector('i');
     if (icon) {
-      icon.className = name === tab
+      icon.className = name === tab && name !== 'add'
         ? icon.className.replace('ph-bold', 'ph-fill')
         : icon.className.replace('ph-fill', 'ph-bold');
     }
@@ -966,7 +988,7 @@ $('copyShareLink').addEventListener('click', async () => {
   const link = $('shareLink');
   const message = $('shareMessage');
   try {
-    await navigator.clipboard.writeText(link.value);
+    await window.KagopitaActions.request(() => navigator.clipboard.writeText(link.value));
     message.textContent = '招待リンクをコピーしました。参加してほしい人に送ってください。';
   } catch (error) {
     console.error('招待リンクをコピーできませんでした。', error);
@@ -1033,13 +1055,18 @@ async function readAvatarFile(file) {
   canvas.getContext('2d').drawImage(bitmap, (bitmap.width - size) / 2, (bitmap.height - size) / 2, size, size, 0, 0, 256, 256);
   return canvas.toDataURL('image/jpeg', 0.82);
 }
+let membersRequestId = 0, membersRefreshPending = false;
 async function loadMembers() {
+  const requestId = ++membersRequestId;
+  const channelId = currentChannelId;
   const container = $('membersContainer');
-  container.replaceChildren();
   let members;
   try {
     ({ members } = await api(channelUrl('/members')));
+    if (requestId !== membersRequestId || channelId !== currentChannelId) return;
   } catch (error) {
+    if (requestId !== membersRequestId || channelId !== currentChannelId) return;
+    container.replaceChildren();
     const message = document.createElement('p');
     message.className = 'share-message';
     message.textContent = error.message;
@@ -1047,6 +1074,17 @@ async function loadMembers() {
     return;
   }
 
+  // Do not replace a role picker while the user is interacting with it.
+  const activePicker = container.querySelector('.custom-select.is-open');
+  if (activePicker) {
+    if (!membersRefreshPending) {
+      membersRefreshPending = true;
+      activePicker.addEventListener('kagopita:select-close', () => { membersRefreshPending = false; loadMembers(); }, {once:true});
+    }
+    return;
+  }
+
+  container.replaceChildren();
   members.forEach(member => {
     const row = document.createElement('div');
     row.className = 'feed-item member-row';
@@ -1055,11 +1093,32 @@ async function loadMembers() {
     content.className = 'feed-content';
     const memberName = document.createElement('span'); memberName.className = 'member-name'; memberName.textContent = member.username; content.appendChild(memberName);
     const role = document.createElement('span');
-    role.className = 'member-role';
-    role.textContent = member.role === 'admin' ? '管理者' : '参加者';
+    role.className = 'member-role'; role.dataset.memberRole = member.role;
+    role.textContent = translateFeature(memberRoleLabel(member.role));
     content.appendChild(role);
     row.append(avatar, content);
-    if (currentMemberRole === 'admin' && member.id !== currentUser.id) {
+    if (['owner', 'admin'].includes(currentMemberRole) && member.id !== currentUser.id && member.role !== 'owner' && (currentMemberRole === 'owner' || member.role !== 'admin')) {
+      const controls = document.createElement('div'); controls.className = 'member-role-controls';
+      const select = document.createElement('select'); select.className = 'member-role-select';
+      select.id = `member-role-${member.id}`;
+      select.setAttribute('aria-label', `${member.username}: ${translateFeature('権限')}`);
+      select.dataset.i18nIgnore = 'true';
+      for (const value of (currentMemberRole === 'owner' ? ['member', 'editor', 'admin'] : ['member', 'editor'])) select.add(new Option(translateFeature(memberRoleLabel(value)), value));
+      select.value = member.role;
+      select.addEventListener('change', async () => {
+        const selectedRole = select.value;
+        const url = channelUrl(`/members/${encodeURIComponent(member.id)}/role`);
+        select.disabled = true;
+        const save = async () => {
+          await api(url, { method: 'PATCH', headers: {'Content-Type':'application/json'}, body: JSON.stringify({role: selectedRole}) });
+          await refreshChannels(); await loadMembers();
+        };
+        try {
+          await save();
+        } catch (error) { KagopitaDialogs.notice(error.message); }
+        finally { if (select.isConnected) { select.disabled = false; select.value = member.role; } }
+      });
+      controls.append(select); row.append(controls);
       const kick = document.createElement('button');
       kick.className = 'kick-button';
       kick.type = 'button';
@@ -1075,10 +1134,11 @@ async function loadMembers() {
           onConfirm: async () => { await api(url, { method: 'DELETE' }); await loadMembers(); }
         });
       });
-      row.appendChild(kick);
+      controls.appendChild(kick);
     }
     container.appendChild(row);
   });
+  window.KagopitaSelects?.enhance(container);
 }
 
 function updateAccountStatus(language) {
@@ -1158,7 +1218,7 @@ $('profileForm').addEventListener('submit', async event => {
   const button = event.currentTarget.querySelector('[type="submit"]');
   button.disabled = true;
   try {
-    const avatar = await readAvatarFile($('profileAvatar').files[0]);
+    const avatar = await window.KagopitaActions.request(() => readAvatarFile($('profileAvatar').files[0]));
     const { username, avatar: savedAvatar } = await api('/api/profile', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -1350,7 +1410,7 @@ $('leaveGroup').addEventListener('click', () => {
   const url = channelUrl('/membership');
   return KagopitaDialogs.show({
     title: 'リストから退出しますか？',
-    body: '退出すると、このリストが参加中のリストから削除されます。管理者の場合、残っているメンバーに管理者権限が移ります。',
+    body: currentMemberRole === 'owner' ? '作成者が退出すると、このリストと商品・履歴が完全に削除され、全員が退出します。この操作は取り消せません。' : '退出すると、このリストが参加中のリストから削除されます。他のメンバーは引き続き利用できます。',
     confirmLabel: '退出する', danger: true,
     onConfirm: async () => { await api(url, { method: 'DELETE' }); await refreshChannels(null); }
   });
@@ -1387,7 +1447,7 @@ function renderJoinedChannels() {
     button.setAttribute('aria-current', channel.id === currentChannelId ? 'true' : 'false');
     const name=document.createElement('span'); name.className='joined-channel-name'; name.textContent=channel.name; name.dataset.i18nIgnore='true';
     const role=document.createElement('span');role.className='joined-channel-role';
-    role.textContent=translateFeature(channel.archivedAt ? 'アーカイブ済み' : channel.id===currentChannelId ? '✓ 使用中' : channel.role==='admin' ? '管理者' : '参加者');
+    role.textContent=translateFeature(channel.archivedAt ? 'アーカイブ済み' : channel.id===currentChannelId ? '✓ 使用中' : memberRoleLabel(channel.role));
     const icon=document.createElement('span');icon.className='managed-list-icon';icon.setAttribute('aria-hidden','true');
     icon.innerHTML='<i class="ph-bold '+(channel.archivedAt?'ph-archive':'ph-shopping-bag')+'"></i>';
     button.append(icon,name,role);
@@ -1402,7 +1462,7 @@ function renderJoinedChannels() {
       const result=await api(`/api/channels/${encodeURIComponent(channel.id)}/duplicate`,{method:'POST'});
       await refreshChannels(result.id);switchTab('list');
     });
-    if (channel.role==='admin') action(channel.archivedAt ? 'アーカイブを解除' : 'アーカイブ',async()=>{
+    if (channel.role==='owner') action(channel.archivedAt ? 'アーカイブを解除' : 'アーカイブ',async()=>{
       await api(`/api/channels/${encodeURIComponent(channel.id)}/archive`,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({archived:!channel.archivedAt})});
       await refreshChannels(channel.archivedAt ? channel.id : currentChannelId);
     });
@@ -1429,12 +1489,13 @@ function renderNavigationShortcuts() {
   getShortcuts().forEach((key, index) => {
     const button = $(index ? 'shortcut-right' : 'shortcut-left');
     const [label, icon] = shortcutChoices[key];
-    button.innerHTML = `<i class="ph-bold ${icon}"></i><span>${label}</span>`;
-    button.disabled = (['complete', 'share'].includes(key) && currentMemberRole !== 'admin') || (key === 'account' && !currentUser);
+    button.innerHTML = `<i class="ph-bold ${icon}" aria-hidden="true"></i><span>${label}</span>`;
+    button.disabled = (['complete', 'share'].includes(key) && currentMemberRole !== 'owner') || (key === 'account' && !currentUser) || (['add', 'favorites'].includes(key) && !canEditItems());
     button.classList.toggle('hidden', key === 'members' && !currentChannelId);
     button.classList.toggle('active', key === currentTab);
     if (key === currentTab) button.setAttribute('aria-current', 'page');
     else button.removeAttribute('aria-current');
+    button.dataset.navigationAction = key;
     button.onclick = () => runNavigationAction(key);
   });
 }
@@ -1451,7 +1512,7 @@ function syncNavigationMenu() {
   $('navigationDialog').querySelectorAll('[data-menu-tab]').forEach(button => {
     const selected = button.dataset.menuTab === currentTab;
     button.classList.toggle('hidden', !currentChannelId && ['list', 'members'].includes(button.dataset.menuTab));
-    button.disabled = selected || (button.dataset.menuTab === 'complete' && currentMemberRole !== 'admin');
+    button.disabled = selected || (button.dataset.menuTab === 'complete' && currentMemberRole !== 'owner') || (button.dataset.menuTab === 'add' && !canEditItems());
     if (selected) button.setAttribute('aria-current', 'page');
     else button.removeAttribute('aria-current');
   });
@@ -1460,6 +1521,7 @@ function openNavigationMenu() {
   if (!currentUser) return closeNavigationMenu();
   const menu = $('navigationDialog');
   if (menu.classList.contains('is-open')) return closeNavigationMenu();
+  window.KagopitaNotifications?.close();
   syncNavigationMenu();
   menu.scrollTop = 0;
   menu.inert = false; menu.classList.add('is-open'); menu.setAttribute('aria-hidden', 'false');

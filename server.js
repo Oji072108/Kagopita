@@ -359,9 +359,9 @@ function attachChannel(req, res, next) {
   next();
 }
 
-function requireChannelAdmin(req, res, next) {
-  if (req.channelRole !== 'admin') {
-    return res.status(403).json({ error: 'Only this list’s admin can do that.' });
+function requireChannelOwner(req, res, next) {
+  if (req.channelRole !== 'owner') {
+    return res.status(403).json({ error: 'Only this list’s owner can do that.' });
   }
   next();
 }
@@ -398,7 +398,7 @@ app.post('/api/session', (req, res, next) => {
       const timestamp = database.now();
       db.prepare('INSERT INTO channels (id, name, created_at) VALUES (?, ?, ?)')
         .run(channelId, '家族の買い物', timestamp);
-      db.prepare("INSERT INTO channel_members (channel_id, user_id, role, joined_at) VALUES (?, ?, 'admin', ?)")
+      db.prepare("INSERT INTO channel_members (channel_id, user_id, role, joined_at) VALUES (?, ?, 'owner', ?)")
         .run(channelId, user.id, timestamp);
       db.prepare(`
         INSERT INTO activity_log (channel_id, user_id, username, action, item, created_at)
@@ -759,6 +759,9 @@ app.patch('/api/account/email', async (req, res) => {
 
 app.delete('/api/account', (req, res) => {
   const token = readSessionToken(req);
+  for (const row of db.prepare('SELECT channel_id FROM channel_members WHERE user_id = ?').all(req.user.id)) {
+    removeChannelMember(row.channel_id, req.user.id, req.user, 'left');
+  }
   database.transaction(() => {
     db.prepare('DELETE FROM users WHERE id = ?').run(req.user.id);
     if (token) db.prepare('DELETE FROM sessions WHERE token_hash = ?').run(database.sessionHash(token));
@@ -833,10 +836,10 @@ app.post('/api/channels', (req, res) => {
   }
   const channelId = createChannel(name, req.user.id);
   broadcast({ type: 'channels', recipientId: req.user.id });
-  res.status(201).json({ id: channelId, name, role: 'admin' });
+  res.status(201).json({ id: channelId, name, role: 'owner' });
 });
 
-app.post('/api/channels/:channelId/invites', attachChannel, requireChannelAdmin, (req, res) => {
+app.post('/api/channels/:channelId/invites', attachChannel, requireChannelOwner, (req, res) => {
   let code;
   do {
     code = database.generateInviteCode();
@@ -847,7 +850,7 @@ app.post('/api/channels/:channelId/invites', attachChannel, requireChannelAdmin,
   res.json({ inviteCode: code });
 });
 
-app.post('/api/channels/:channelId/email-invites', attachChannel, requireChannelAdmin, async (req, res) => {
+app.post('/api/channels/:channelId/email-invites', attachChannel, requireChannelOwner, async (req, res) => {
   const email = normalizeEmail(req.body?.email);
   if (!isValidEmail(email)) return res.status(400).json({ error: '有効なメールアドレスを入力してください。' });
   if (emailInviteRateLimited(req.user.id)) return res.status(429).json({ error: '招待メールの送信回数が上限に達しました。しばらくしてからお試しください。' });
@@ -865,6 +868,44 @@ app.post('/api/channels/:channelId/email-invites', attachChannel, requireChannel
     console.error('Could not send list invite email.', error);
     res.status(502).json({ error: '招待メールを送信できませんでした。メール設定を確認してください。' });
   }
+});
+
+// Administrators manage ordinary members; only the creator appoints administrators.
+app.patch('/api/channels/:channelId/members/:userId/role', attachChannel, (req, res) => {
+  if (!['owner', 'admin'].includes(req.channelRole)) return res.status(403).json({ error: 'Only administrators can manage members.' });
+  const role = req.body?.role;
+  if (!['admin', 'editor', 'member'].includes(role)) return res.status(400).json({ error: 'Invalid member role.' });
+  if (req.params.userId === req.user.id) return res.status(400).json({ error: 'You cannot change your own role.' });
+  const member = db.prepare('SELECT role FROM channel_members WHERE channel_id = ? AND user_id = ?')
+    .get(req.channel.id, req.params.userId);
+  if (!member) return res.status(404).json({ error: 'Member not found.' });
+  if (member.role === 'owner' || (req.channelRole !== 'owner' && (role === 'admin' || member.role === 'admin'))) return res.status(403).json({ error: 'Only the creator can appoint or manage administrators.' });
+  database.transaction(() => {
+    db.prepare('UPDATE channel_members SET role = ? WHERE channel_id = ? AND user_id = ?').run(role, req.channel.id, req.params.userId);
+    logActivity(req.channel.id, req.user, 'role-changed');
+  });
+  broadcast({ type: 'channels', channelId: req.channel.id });
+  res.json({ role });
+});
+
+app.get('/api/notifications', (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  const count = db.prepare(`SELECT COUNT(*) AS total, COALESCE(SUM(n.read_at IS NULL), 0) AS unreadCount, COALESCE(MAX(n.id), 0) AS latestId FROM notifications n JOIN channel_members m ON m.channel_id = n.channel_id AND m.user_id = n.user_id WHERE n.user_id = ?`).get(req.user.id);
+  const pageSize = 10, totalPages = Math.max(1, Math.ceil(count.total / pageSize));
+  const page = Math.min(totalPages, Math.max(1, Number.parseInt(req.query.page, 10) || 1));
+  const notifications = db.prepare(`SELECT n.id, n.channel_id AS channelId, c.name AS channelName,
+    n.actor_name AS actorName, n.action, n.item, n.created_at AS createdAt, n.read_at AS readAt
+    FROM notifications n JOIN channels c ON c.id = n.channel_id
+    JOIN channel_members m ON m.channel_id = n.channel_id AND m.user_id = n.user_id
+    WHERE n.user_id = ? ORDER BY n.id DESC LIMIT ? OFFSET ?`).all(req.user.id, pageSize, (page - 1) * pageSize);
+  res.json({ notifications, ...count, page, pageSize, totalPages });
+});
+app.post('/api/notifications/read', (req, res) => {
+  const throughId = req.body?.throughId;
+  if (!Number.isSafeInteger(throughId) || throughId < 0) return res.status(400).json({ error: 'Invalid notification id.' });
+  db.prepare('DELETE FROM notifications WHERE user_id = ? AND id <= ?').run(req.user.id, throughId);
+  broadcast({ type: 'notifications', recipientId: req.user.id });
+  res.json({ ok: true });
 });
 
 app.get('/api/channels/:channelId/members', attachChannel, (req, res) => {
@@ -886,19 +927,14 @@ function removeChannelMember(channelId, userId, actor, action) {
 
   const remove = () => database.transaction(() => {
     db.prepare('UPDATE shopping_items SET assigned_to = NULL WHERE channel_id = ? AND assigned_to = ?').run(channelId, userId);
+    db.prepare('DELETE FROM notifications WHERE channel_id = ? AND user_id = ?').run(channelId, userId);
     db.prepare('DELETE FROM channel_members WHERE channel_id = ? AND user_id = ?')
       .run(channelId, userId);
 
-    if (membership.role === 'admin') {
-      const nextAdmin = db.prepare(`
-        SELECT user_id FROM channel_members WHERE channel_id = ? ORDER BY joined_at LIMIT 1
-      `).get(channelId);
-      if (nextAdmin) {
-        db.prepare("UPDATE channel_members SET role = 'admin' WHERE channel_id = ? AND user_id = ?")
-          .run(channelId, nextAdmin.user_id);
-      } else {
-        db.prepare('DELETE FROM channels WHERE id = ?').run(channelId);
-      }
+    if (membership.role === 'owner') {
+      const recipientIds = db.prepare('SELECT user_id FROM channel_members WHERE channel_id = ?').all(channelId).map(row => row.user_id);
+      db.prepare('DELETE FROM channels WHERE id = ?').run(channelId);
+      broadcast({ type: 'channel-completed', channelId, recipientIds: [...recipientIds, userId] });
     }
 
     const remaining = db.prepare('SELECT COUNT(*) AS count FROM channel_members WHERE channel_id = ?')
@@ -914,7 +950,9 @@ function removeChannelMember(channelId, userId, actor, action) {
   return true;
 }
 
-app.delete('/api/channels/:channelId/members/:userId', attachChannel, requireChannelAdmin, (req, res) => {
+app.delete('/api/channels/:channelId/members/:userId', attachChannel, (req, res) => {
+  const targetRole = getChannelRole(req.channel.id, req.params.userId);
+  if (!['owner', 'admin'].includes(req.channelRole) || targetRole === 'owner' || (req.channelRole === 'admin' && targetRole === 'admin')) return res.status(403).json({ error: 'You cannot remove this member.' });
   if (req.params.userId === req.user.id) {
     return res.status(400).json({ error: 'Use Leave list to remove yourself.' });
   }
@@ -929,7 +967,7 @@ app.delete('/api/channels/:channelId/membership', attachChannel, (req, res) => {
   res.json({ message: 'You left this list.' });
 });
 
-app.post('/api/channels/:channelId/complete', attachChannel, requireChannelAdmin, (req, res) => {
+app.post('/api/channels/:channelId/complete', attachChannel, requireChannelOwner, (req, res) => {
   const channelId = req.channel.id;
   const recipientIds = db.prepare('SELECT user_id FROM channel_members WHERE channel_id = ?')
     .all(channelId).map(row => row.user_id);
@@ -946,17 +984,17 @@ app.post('/api/channels/:channelId/duplicate', attachChannel, (req, res) => {
   const timestamp = database.now();
   database.transaction(() => {
     db.prepare('INSERT INTO channels (id, name, created_at) VALUES (?, ?, ?)').run(id, name.trim(), timestamp);
-    db.prepare("INSERT INTO channel_members (channel_id, user_id, role, joined_at) VALUES (?, ?, 'admin', ?)").run(id, req.user.id, timestamp);
+    db.prepare("INSERT INTO channel_members (channel_id, user_id, role, joined_at) VALUES (?, ?, 'owner', ?)").run(id, req.user.id, timestamp);
     db.prepare(`INSERT INTO shopping_items (channel_id, category, name, qty, completed, added_by, created_at, notes, price, recurrence)
       SELECT ?, category, name, qty, 0, ?, ?, notes, price, recurrence FROM shopping_items
       WHERE channel_id = ? AND deleted_at IS NULL`).run(id, req.user.username, timestamp, req.channel.id);
     logActivity(id, req.user, 'created');
   });
   broadcast({ type: 'channels', recipientId: req.user.id });
-  res.status(201).json({ id, name: name.trim(), role: 'admin', archivedAt: null });
+  res.status(201).json({ id, name: name.trim(), role: 'owner', archivedAt: null });
 });
 
-app.patch('/api/channels/:channelId/archive', attachChannel, requireChannelAdmin, (req, res) => {
+app.patch('/api/channels/:channelId/archive', attachChannel, requireChannelOwner, (req, res) => {
   if (typeof req.body?.archived !== 'boolean') return res.status(400).json({ error: 'アーカイブの状態が無効です。' });
   const archivedAt = req.body.archived ? database.now() : null;
   db.prepare('UPDATE channels SET archived_at = ? WHERE id = ?').run(archivedAt, req.channel.id);

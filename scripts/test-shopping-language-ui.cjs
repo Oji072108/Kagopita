@@ -11,7 +11,7 @@ async function viewer(language){
  const page=await context.newPage();page.on('pageerror',e=>errors.push(e.message));
  await page.route('**/api/**',async route=>{
  const req=route.request(),path=new URL(req.url()).pathname;let data={};
- if(path==='/api/me')data={user:{id:language,username:language},channels:[{id:'shared',name:'Shared',role:'admin'}]};
+ if(path==='/api/me')data={user:{id:language,username:language},channels:[{id:'shared',name:'Shared',role:'owner'}]};
  else if(path.endsWith('/shopping-list'))data={total:items.length,completed:0,familyFeed:[],categories:[...new Set(items.map(i=>i.category))].map(name=>({name,items:items.filter(i=>i.category===name)})),deletedItems:[{id:99,name:'牛乳',qty:'2本'}]};
  else if(path.endsWith('/members'))data={members:[]};
  else if(path.endsWith('/favorites'))data={favorites:[{id:5,name:'牛乳',qty:'2本',category:'乳製品・チーズ'}]};
@@ -36,14 +36,14 @@ for(const [language,name,quantity] of [['ko','우유','1병'],['zh','牛奶','1�
  await en.evaluate(lang=>applyLanguage(lang),language);
  await en.waitForFunction(({name,quantity})=>{const e=document.querySelector('.item-name');return e.textContent.includes(name)&&e.textContent.includes(quantity)},{name,quantity});
  assert.ok(await en.locator('[data-shopping-name]').allTextContents().then(texts=>texts.includes(name)));
- await en.locator('#nav-add').tap();
+ await openAdd(en);
  await en.waitForFunction(name=>document.querySelector('.favorite-name')?.textContent===name,name);
  await en.locator('#inputName').fill(name);assert.equal(await en.locator('#inputCategory').inputValue(),'乳製品・チーズ');
  await en.waitForFunction(quantity=>document.querySelector('#inputQtyPreview').textContent.includes(quantity),quantity);
  await en.locator('#nav-list').tap();
 }
 assert.deepEqual(items,originals);assert.equal(writes.length,0);
-await en.evaluate(()=>applyLanguage('es'));await en.locator('#nav-add').tap();await en.locator('#inputName').fill('leche');await en.locator('#inputQty').fill('2');
+await en.evaluate(()=>applyLanguage('es'));await openAdd(en);await en.locator('#inputName').fill('leche');await en.locator('#inputQty').fill('2');
 assert.equal(await en.locator('#inputQtyPreview').textContent(),'→ 2 botellas');
 await en.locator('#addForm [type="submit"]').tap();await en.locator('#view-list').waitFor({state:'visible'});
 assert.equal(writes[0].name,'leche');assert.equal(writes[0].qty,'2本');assert.equal(writes[0].category,'乳製品・チーズ');
@@ -56,3 +56,10 @@ await en.setViewportSize({width:390,height:844});await en.screenshot({path:'/tmp
 assert.deepEqual(errors,[]);console.log('PASS: concurrent JA/EN viewers, five-language item/favorite/counter switching, cross-language search, original edit values, untouched notes, multilingual add serialization, shared reload and both-theme responsive layout');
 }finally{await browser.close()}
 })().catch(e=>{console.error(e);process.exit(1)});
+
+// The selected Add tab is deliberately disabled; only navigate when leaving another tab.
+async function openAdd(page) {
+  const button = page.locator('#nav-add');
+  if (await button.isDisabled()) assert.equal(await button.getAttribute('aria-current'), 'page');
+  else await button.tap();
+}

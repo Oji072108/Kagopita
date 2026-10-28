@@ -9,9 +9,9 @@ const assert=require('node:assert/strict');
  const writes=[];
  await page.route('**/api/**',async route=>{
   const req=route.request(),path=new URL(req.url()).pathname;let data={};
-  if(path==='/api/me') data={user:{id:'u',username:'検証'},channels:[{id:'a',name:'検証リスト',role:'admin'}]};
+  if(path==='/api/me') data={user:{id:'u',username:'検証'},channels:[{id:'a',name:'検証リスト',role:'owner'}]};
   else if(path.endsWith('/shopping-list')) data={total:1,completed:0,familyFeed:[],categories:[{name:item.category,items:[item]}]};
-  else if(path.endsWith('/members')) data={members:[{id:'u',username:'検証',role:'admin'}]};
+  else if(path.endsWith('/members')) data={members:[{id:'u',username:'検証',role:'owner'}]};
   else if(path.endsWith('/favorites')) data={favorites:[]};
   else if(['POST','PUT'].includes(req.method()) && /\/items(?:\/1)?$/.test(path)) {const payload=req.postDataJSON(); writes.push(payload);Object.assign(item,payload);data={item};}
   else if(path==='/api/events') return route.fulfill({contentType:'text/event-stream',body:': test\n\n'});

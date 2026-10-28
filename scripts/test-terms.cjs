@@ -9,7 +9,7 @@ const {DatabaseSync} = require('node:sqlite');
  const root=path.resolve(__dirname,'..'), fixture=fs.mkdtempSync(path.join(os.tmpdir(),'kagopita-terms-'));
  let child,db;
  try {
-  for(const name of ['server.js','database.js','terms.js','terms.json','realtime.js','recurring.js'])fs.copyFileSync(path.join(root,name),path.join(fixture,name));
+  for(const name of ['server.js','database.js','terms.js','terms.json','realtime.js','recurring.js','notifications.js'])fs.copyFileSync(path.join(root,name),path.join(fixture,name));
   for(const name of ['node_modules','routes','public'])fs.symlinkSync(path.join(root,name),path.join(fixture,name),'dir');
   fs.writeFileSync(path.join(fixture,'mail-stub.cjs'),`const fs=require('node:fs'); require('nodemailer').createTransport=()=>({sendMail:async mail=>{if(fs.existsSync('fail-mail'))throw Error('Test mail failure');fs.writeFileSync('mail.json',JSON.stringify(mail));return {};}});`);
   const socket=net.createServer();await new Promise(r=>socket.listen(0,'127.0.0.1',r));const port=socket.address().port;await new Promise(r=>socket.close(r));

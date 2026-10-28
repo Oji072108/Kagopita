@@ -19,7 +19,7 @@ const original=require('../terms.json');
     if(!joined)return r.fulfill({status:401,json:{error:'Not signed in'}});
     if(path==='/api/events')return r.fulfill({contentType:'text/event-stream',body:': fixture\n\n'});
     let data={};
-    if(path==='/api/me')data={user:{id:'u',username:'Guest'},channels:[{id:'a',name:'Groceries',role:'member'}]};
+    if(path==='/api/me')data={user:{id:'u',username:'Guest'},channels:[{id:'a',name:'Groceries',role:'editor'}]};
     if(path.endsWith('/shopping-list'))data={total:0,completed:0,familyFeed:[],categories:[]};
     if(path.endsWith('/members'))data={members:[]};
     if(path.endsWith('/favorites'))data={favorites:[]};

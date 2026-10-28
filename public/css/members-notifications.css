@@ -1,0 +1,74 @@
+.notification-bell { position:relative; display:inline-flex; align-items:center; justify-content:center; width:44px; height:44px; flex-shrink:0; border:1px solid currentColor; border-radius:50%; background:transparent; color:inherit; cursor:pointer; font-size:22px; }
+.notification-count { position:absolute; top:-5px; right:-5px; min-width:22px; padding:2px 4px; border-radius:12px; background:#b3261e; color:#fff !important; font:700 12px/18px sans-serif; }
+.notifications-dialog { width:min(560px, calc(100vw - 24px)); max-height:80dvh; box-sizing:border-box; overflow-y:auto; padding:20px; border:1px solid var(--border); border-radius:16px; background:var(--surface); color:var(--text); }
+.notifications-heading { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+.notifications-heading h2 { margin:0; font-size:20px; }
+.notifications-dialog p { font-size:13px; line-height:1.6; }
+.notification-entry { width:100%; display:flex; flex-direction:column; align-items:flex-start; text-align:left; gap:6px; padding:14px 12px; margin:8px 0; border:1px solid var(--border); border-radius:10px; background:transparent; color:inherit; cursor:pointer; overflow-wrap:anywhere; }
+.notification-entry.unread { border-inline-start:4px solid var(--primary); background:var(--primary-light); }
+.notification-entry small { font-size:12px; color:var(--muted); }
+.notification-toast { position:fixed; bottom:calc(110px + env(safe-area-inset-bottom)); left:50%; transform:translateX(-50%); z-index:1100; width:max-content; max-width:calc(100vw - 32px); box-sizing:border-box; padding:14px 18px; border:1px solid var(--border); border-radius:12px; background:var(--surface); color:var(--text); box-shadow:0 6px 22px #0003; overflow-wrap:anywhere; pointer-events:none; }
+.member-role-controls { display:flex; flex-direction:column; align-items:stretch; gap:8px; flex:0 0 auto; max-width:45%; }
+.member-role-select { width:100%; min-height:44px; padding:8px; border:1px solid var(--border); border-radius:8px; background:var(--surface); color:var(--text); font:inherit; font-size:13px; }
+.member-permission-hint { color:var(--muted); font-size:13px; line-height:1.7; }
+.dark-mode .notification-entry.unread { background:#263d2a; }
+.dark-mode .notification-bell { color:#fff; }
+@media (max-width:360px) { .header-actions { gap:6px; } .notification-bell { width:38px; height:38px; } .member-role-controls { max-width:42%; } }
+
+/* Header-anchored inbox: the same floating surface and motion as the menu. */
+.notifications-dialog { position:fixed; z-index:46; top:calc(var(--header-bottom, 80px) + 6px); right:max(12px, calc((100vw - 760px) / 2)); width:min(380px, calc(100vw - 24px)); max-height:calc(100dvh - var(--header-bottom, 80px) - 100px - env(safe-area-inset-bottom)); margin:0; padding:18px; border-radius:20px; overscroll-behavior:contain; box-shadow:0 12px 40px #0003; opacity:0; visibility:hidden; pointer-events:none; transform:translateY(-10px) scale(.98); transform-origin:top right; transition:opacity .18s ease,transform .18s ease,visibility .18s; }
+.notifications-dialog.is-open { opacity:1; visibility:visible; pointer-events:auto; transform:none; }
+.notifications-heading { padding-bottom:12px; border-bottom:1px solid var(--border); }
+.notifications-heading h2 { display:flex; align-items:center; gap:8px; }
+.notification-close, .notification-pagination button { display:inline-flex; align-items:center; justify-content:center; min-width:44px; min-height:44px; border:1px solid var(--border); border-radius:12px; background:transparent; color:var(--text); cursor:pointer; font-size:18px; }
+.notification-close:hover, .notification-pagination button:not(:disabled):hover { background:var(--primary-light); }
+#readNotifications { display:flex; justify-content:center; align-items:center; width:100%; min-height:44px; border:1px solid var(--border); border-radius:12px; background:var(--primary-light); color:var(--primary-dark); font:inherit; font-size:14px; font-weight:700; text-decoration:none; cursor:pointer; }
+#readNotifications:disabled { opacity:.45; cursor:default; }
+.notifications-dialog .notification-clear-hint { margin:6px 0 12px; font-size:11px; color:var(--muted); text-align:center; }
+#notificationsError:empty { display:none; }
+.notification-entry { padding:14px; border-radius:13px; gap:8px; }
+.notification-entry strong { font-size:14px; line-height:1.6; }
+#notificationsList > p { padding:36px 12px; text-align:center; color:var(--muted); }
+.notification-pagination { display:flex; align-items:center; justify-content:space-between; gap:12px; padding-top:12px; margin-top:12px; border-top:1px solid var(--border); }
+.notification-pagination[hidden] { display:none; }
+.notification-pagination span { font-size:13px; font-weight:700; color:var(--muted); }
+.notification-pagination button:disabled { opacity:.35; cursor:default; }
+.member-row { position:relative; padding:16px; gap:12px; border:1px solid var(--border); border-radius:16px; align-items:center; }
+.member-row .feed-content { min-width:0; flex:1; }
+.member-name { display:block; font-size:15px; font-weight:700; line-height:1.5; }
+.member-role { display:inline-flex; margin-top:5px; padding:3px 8px; border-radius:6px; background:var(--surface); color:var(--muted); font-size:11px; line-height:1.5; }
+.member-role[data-member-role="owner"], .member-role[data-member-role="admin"] { background:var(--primary-light); color:var(--primary-dark); }
+.member-role-controls { flex:0 0 148px; max-width:48%; gap:8px; }
+.member-role-controls .custom-select-trigger { min-height:44px; padding:9px 10px; gap:6px; font-size:12px; border-radius:10px; }
+.member-role-controls .custom-select-options { min-width:176px; left:auto; right:0; }
+.member-role-controls .custom-select-option { font-size:13px; }
+.member-role-controls .kick-button { min-height:40px; padding:8px 10px; border-radius:10px; font-size:12px; }
+.dark-mode #readNotifications, .dark-mode .member-role[data-member-role="owner"], .dark-mode .member-role[data-member-role="admin"] { color:#b4dfa8; background:#2d4430; }
+@media (max-width:360px) { .member-row { padding:12px; gap:8px; flex-wrap:wrap; } .member-role-controls { flex-basis:100%; max-width:100%; flex-direction:row; } .member-role-controls .custom-select { flex:1; } .member-role-controls .kick-button { flex-shrink:0; } }
+@media (prefers-reduced-motion:reduce) { .notifications-dialog { transition:none; } }
+.notification-pagination { position:sticky; bottom:-18px; padding-bottom:12px; background:var(--surface); }
+
+/* The button mirrors the drawer state, including outside-click and Escape closes. */
+.notification-bell {
+  transition: background-color .18s ease, color .18s ease, box-shadow .18s ease;
+}
+.notification-bell > i { display:inline-block; transform-origin:50% 15%; }
+.notification-bell:active > i { transform:scale(.88); }
+.notification-bell[aria-expanded="true"] {
+  background:var(--primary-light);
+  color:var(--primary-dark);
+  border-color:var(--primary-dark);
+  box-shadow:0 0 0 3px color-mix(in srgb, var(--primary-light) 45%, transparent);
+}
+.notification-bell[aria-expanded="true"] > i { animation:notification-bell-ring .48s ease-out; }
+@keyframes notification-bell-ring {
+  0%, 100% { transform:rotate(0); }
+  20% { transform:rotate(18deg); }
+  40% { transform:rotate(-15deg); }
+  60% { transform:rotate(10deg); }
+  80% { transform:rotate(-5deg); }
+}
+@media (prefers-reduced-motion:reduce) {
+  .notification-bell { transition:none; }
+  .notification-bell[aria-expanded="true"] > i { animation:none; }
+}

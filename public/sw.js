@@ -1,5 +1,5 @@
 /* Public install assets only. Never cache pages, scripts, credentials or API data. */
-const CACHE = 'kagopita-pwa-v1';
+const CACHE = 'kagopita-pwa-v2';
 const PUBLIC_ASSETS = ['/offline.html', '/icons/pwa-192.png', '/icons/pwa-512.png'];
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(PUBLIC_ASSETS)).then(() => self.skipWaiting()));

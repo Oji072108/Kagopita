@@ -5,9 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#388e3c">
   <meta name="referrer" content="no-referrer">
-  <link rel="icon" href="/favicon.ico" sizes="any">
-  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
-  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+  <link rel="icon" href="/favicon.ico?v=20261028-brand2" sizes="any">
+  <link rel="icon" href="/favicon.svg?v=20261028-brand2" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png?v=20261028-brand2">
   <link rel="manifest" href="/manifest.webmanifest">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-title" content="カゴピタ">
@@ -27,6 +27,9 @@
   <meta name="twitter:title" content="カゴピタ｜みんなで使えるお買い物リスト">
   <meta name="twitter:description" content="家族や友だちと共有して、買い忘れをなくそう。">
   <meta name="twitter:image" content="__PUBLIC_URL__/share-preview.png">
+  <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-5805938506004625" crossorigin="anonymous"></script>
+  <link rel="stylesheet" href="/css/ads.css?v=20261028-ads1">
+  <script src="/js/ads.js?v=20261028-ads1" defer></script>
   <title>カゴピタ - みんなのお買い物リスト</title>
 
   <link rel="stylesheet" href="/css/style.css?v=20261028-empty-nav1">
@@ -34,18 +37,23 @@
   <link href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@400;500;700;900&display=swap" rel="stylesheet">
   <script src="https://unpkg.com/@phosphor-icons/web"></script>
   <script src="/vendor/qrcode.min.js" defer></script>
-  <script src="/js/i18n.js?v=20261028-pwa1" defer></script>
+  <script src="/js/i18n.js?v=20261028-roles2" defer></script>
   <script src="/js/shopping-language.js?v=20261028-terms4" defer></script>
   <script src="/js/quantity.js?v=20261028-terms4" defer></script>
   <script src="/js/category.js?v=20261028-terms4" defer></script>
+  <script src="/js/actions.js?v=20261028-roles2" defer></script>
   <script src="/js/dialogs.js?v=20261028-terms4" defer></script>
-  <script src="/js/terms.js?v=20261028-terms4" defer></script>
-  <script src="/js/live-updates.js?v=20261028-pwa1" defer></script>
-  <script src="/js/app.js?v=20261028-pwa1" defer></script>
-  <script src="/js/custom-select.js?v=20261028-terms4" defer></script>
+  <script src="/js/terms.js?v=20261028-loading1" defer></script>
+  <script src="/js/live-updates.js?v=20261028-roles2" defer></script>
+  <script src="/js/notifications.js?v=20261028-roles2" defer></script>
+  <script src="/js/app.js?v=20261028-roles2" defer></script>
+  <script src="/js/custom-select.js?v=20261028-roles2" defer></script>
   <link rel="stylesheet" href="/css/dark-mode.css?v=20261028-terms4">
-  <link rel="stylesheet" href="/css/pwa.css?v=20261028-pwa1">
-  <script src="/js/pwa.js?v=20261028-pwa1" defer></script>
+  <link rel="stylesheet" href="/css/pwa.css?v=20261028-menu3">
+  <link rel="stylesheet" href="/css/polish.css?v=20261028-list-account2">
+  <link rel="stylesheet" href="/css/members-notifications.css?v=20261028-bell-feedback1">
+  <link rel="stylesheet" href="/css/actions.css?v=20261028-loading1">
+  <script src="/js/pwa.js?v=20261028-loading1" defer></script>
 </head>
 <body>
   <header class="header">
@@ -59,17 +67,26 @@
     </a>
 
     <div class="header-actions">
+      <button id="notificationsButton" class="notification-bell hidden" type="button" aria-label="通知" aria-haspopup="dialog" aria-expanded="false" aria-controls="notificationsDialog"><i class="ph-bold ph-bell" aria-hidden="true"></i><span id="notificationCount" class="notification-count hidden" data-i18n-ignore="true"></span></button>
       <button id="shareButton" class="family-badge hidden" aria-label="リストを共有" type="button" aria-haspopup="dialog">
         <i class="ph-bold ph-share-network" aria-hidden="true"></i><span class="share-button-label">リストを共有</span>
       </button>
     </div>
   </header>
 
+  <section id="notificationsDialog" class="notifications-dialog" role="dialog" aria-labelledby="notificationsTitle" aria-hidden="true" inert>
+    <div class="notifications-heading"><h2 id="notificationsTitle">通知</h2><button id="closeNotifications" class="notification-close" type="button" aria-label="閉じる"><i class="ph-bold ph-x" aria-hidden="true"></i></button></div>
+    <p>他のメンバーが商品を変更すると、ここに通知が届きます。</p>
+    <button id="readNotifications" class="text-button" type="button">すべて既読にする</button>
+    <p class="notification-clear-hint">既読にすると通知は削除されます。</p><p id="notificationsError" role="status"></p><div id="notificationsList"></div>
+    <nav class="notification-pagination" aria-label="通知のページ"><button id="notificationsPrevious" type="button" aria-label="前のページ"><i class="ph-bold ph-caret-left" aria-hidden="true"></i></button><span id="notificationsPage" aria-live="polite" data-i18n-ignore="true"></span><button id="notificationsNext" type="button" aria-label="次のページ"><i class="ph-bold ph-caret-right" aria-hidden="true"></i></button></nav>
+  </section>
+  <div id="notificationToast" class="notification-toast hidden" role="status" aria-live="polite" data-i18n-ignore="true"></div>
   <main class="main">
-    <div id="pwaInstall" class="pwa-install hidden">
-      <button id="pwaInstallButton" class="btn btn-secondary" type="button">インストール方法</button>
-      <p id="pwaInstallStatus" class="share-message" role="status" aria-live="polite"></p>
+    <div class="ad-container" data-ad-placement="below-header" aria-label="Advertisement" hidden>
+      <span class="ad-label" data-i18n-ignore="true">Advertisement / 広告</span>
     </div>
+
     <aside id="termsUpdateNotice" class="terms-update hidden" role="status" aria-live="polite"><div><strong>利用規約を更新しました</strong><p id="termsUpdateSummary" data-i18n-ignore="true"></p></div><button id="termsUpdateRead" class="btn btn-secondary" type="button">変更内容を確認</button><button id="termsUpdateDismiss" class="text-button" type="button">確認済みにする</button></aside>
     <p id="authNotice" class="share-message hidden" role="status" aria-live="polite"></p>
     <section id="noChannels" class="panel hidden">
@@ -237,6 +254,10 @@
           </nav>
         </div>
       </details>
+
+    <div class="ad-container" data-ad-placement="below-list" aria-label="Advertisement" hidden>
+      <span class="ad-label" data-i18n-ignore="true">Advertisement / 広告</span>
+    </div>
     </section>
 
     <section id="view-add" class="view hidden">
@@ -328,7 +349,7 @@
           <i class="ph-bold ph-users-three"></i>
           メンバー
         </h2>
-        <div id="membersContainer" class="feed"></div>
+        <p class="member-permission-hint">作成者は管理者を任命できます。管理者はメンバー管理、編集者は商品の編集、メンバーはチェックのみできます。</p><div id="membersContainer" class="feed"></div>
       </div>
     </section>
     </div>
@@ -445,6 +466,10 @@
 
     </div>
   </div></section>
+
+    <div class="ad-container" data-ad-placement="page-bottom" aria-label="Advertisement" hidden>
+      <span class="ad-label" data-i18n-ignore="true">Advertisement / 広告</span>
+    </div>
   </main>
 
   <dialog id="shareDialog" class="share-dialog" aria-labelledby="shareTitle">
@@ -475,12 +500,12 @@
 
   <dialog id="pwaInstallDialog" class="share-dialog pwa-install-dialog" aria-labelledby="pwaInstallTitle" aria-describedby="pwaInstallDescription">
     <div class="share-content">
-      <h2 id="pwaInstallTitle" class="panel-title">インストール方法</h2>
+      <h2 id="pwaInstallTitle" class="panel-title" tabindex="-1">インストール方法</h2>
       <p id="pwaInstallDescription">iPhone・iPadへのインストールはSafariで手動で行います。</p>
       <ol class="pwa-install-steps">
         <li>Safariでkagopita.comを開きます。</li>
-        <li>共有ボタン（四角から上向きの矢印）をタップします。</li>
-        <li>「ホーム画面に追加」を選択します。</li>
+        <li><span class="pwa-step-content"><svg class="pwa-step-icon" viewBox="0 0 32 36" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M10 13H7a4 4 0 0 0-4 4v13a4 4 0 0 0 4 4h18a4 4 0 0 0 4-4V17a4 4 0 0 0-4-4h-3M16 23V2m-6 6 6-6 6 6"/></svg><span>共有ボタン（四角から上向きの矢印）をタップします。</span></span></li>
+        <li><span class="pwa-step-content"><svg class="pwa-step-icon" viewBox="0 0 36 36" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="3" y="3" width="30" height="30" rx="9"/><path d="M18 10v16M10 18h16"/></svg><span>「ホーム画面に追加」を選択します。</span></span></li>
         <li>「Webアプリとして開く」が表示された場合はオンにします。</li>
         <li>「追加」をタップします。</li>
       </ol>
@@ -543,6 +568,10 @@
         <button id="menu-share" class="btn btn-secondary" onclick="runNavigationAction('share')"><i class="ph-bold ph-share-network" aria-hidden="true"></i><span>このリストを共有</span></button>
         <button id="nav-members" class="btn btn-secondary" data-menu-tab="members" onclick="runNavigationAction('members')"><i class="ph-bold ph-users" aria-hidden="true"></i><span>メンバー</span></button>
         <button class="btn btn-secondary" type="button" data-menu-tab="account" onclick="runNavigationAction('account')"><i class="ph-bold ph-user-circle" aria-hidden="true"></i><span>アカウント</span></button>
+        <div id="pwaInstall" class="pwa-install hidden">
+          <button id="pwaInstallButton" class="btn btn-secondary" type="button"><i class="ph-bold ph-download-simple" aria-hidden="true"></i><span id="pwaInstallLabel">インストール方法</span></button>
+          <p id="pwaInstallStatus" class="share-message" role="status" aria-live="polite"></p>
+        </div>
         <div class="navigation-divider" aria-hidden="true"></div>
         <button id="nav-complete" class="btn btn-secondary" data-menu-tab="complete" onclick="runNavigationAction('complete')"><i class="ph-bold ph-check-circle" aria-hidden="true"></i><span>買い物を完了</span></button>
       </div>
@@ -550,11 +579,11 @@
   </div>
   <nav class="bottom-nav hidden" aria-label="メインナビゲーション">
     <div class="bottom-nav-links">
-      <button id="nav-list" class="nav-item active" onclick="switchTab('list')"><i class="ph-fill ph-list-checks"></i><span>リスト</span></button>
+      <button id="nav-list" class="nav-item active" onclick="switchTab('list')"><i aria-hidden="true" class="ph-fill ph-list-checks"></i><span>リスト</span></button>
       <button id="shortcut-left" class="nav-item" type="button"></button>
-      <button id="nav-add" class="nav-item" onclick="switchTab('add')"><i class="ph-bold ph-plus-circle"></i><span>追加</span></button>
+      <button id="nav-add" class="nav-item" onclick="switchTab('add')"><i aria-hidden="true" class="ph-bold ph-plus-circle"></i><span>追加</span></button>
       <button id="shortcut-right" class="nav-item" type="button"></button>
-      <button id="nav-account" class="nav-item" type="button"><i class="ph-bold ph-user-circle"></i><span>アカウント</span></button>
+      <button id="nav-account" class="nav-item" type="button"><i aria-hidden="true" class="ph-bold ph-user-circle"></i><span>アカウント</span></button>
     </div>
   </nav>
   <dialog id="itemEditDialog" class="item-edit-dialog">
@@ -585,6 +614,8 @@
       </div>
     </form>
   </dialog>
+  <script src="/js/button-feedback.js?v=20261028-members3"></script>
+  <script src="/js/nav-indicator.js?v=20261028-sliding-nav1"></script>
   <script src="/js/dark-mode.js?v=20261028-terms4"></script>
 </body>
 </html>

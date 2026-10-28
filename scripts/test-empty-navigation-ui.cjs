@@ -12,8 +12,8 @@ const terms=require('../terms.json');
    let data={};
    if(path==='/api/terms')data={...terms,notify:false};
    if(path==='/api/me')data={user:{id:'u',username:'Test'},channels};
-   if(path==='/api/channels'&&r.request().method()==='POST') {channels=[{id:'a',name:r.request().postDataJSON().name,role:'admin'}];data={id:'a'};}
-   if(path==='/api/invites/accept'){channels=[{id:'b',name:'Joined list',role:'member'}];data={channelId:'b'};}
+   if(path==='/api/channels'&&r.request().method()==='POST') {channels=[{id:'a',name:r.request().postDataJSON().name,role:'owner'}];data={id:'a'};}
+   if(path==='/api/invites/accept'){channels=[{id:'b',name:'Joined list',role:'editor'}];data={channelId:'b'};}
    if(path.endsWith('/shopping-list'))data={total:0,completed:0,familyFeed:[],categories:[]};
    if(path.endsWith('/members'))data={members:[]};
    if(path.endsWith('/favorites'))data={favorites:[]};

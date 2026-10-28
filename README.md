@@ -184,14 +184,44 @@ To notify both guests and account holders of an update, edit `terms.json`, give 
 
 Run `node scripts/test-terms.cjs` for isolated API/database checks. With Playwright available separately, run `NODE_PATH=<test-env>/node_modules node scripts/test-terms-ui.cjs` for browser checks using API fixtures. No live email or user data is used by these checks.
 
+### Loading and request deadlines
+
+- User-triggered network actions show a themed spinner and temporarily block page interactions, including keyboard and duplicate form submissions. Control disabled states and drafts are preserved.
+- **List and Members navigation have no loading overlay or interaction lock.** Instant local controls use only press feedback. Background updates remain non-blocking.
+- Requests (including reading response bodies) stop waiting after 30 seconds. A sequence of requests from one action shares that deadline. Timeouts abort browser fetches, unlock the UI, and show a translated error; no automatic mutation retry is attempted. A server may already have applied a change before cancellation, so users are told to check the latest state before retrying.
+- Run `NODE_PATH=<test-env>/node_modules KAGOPITA_TEST_URL=http://127.0.0.1:3001 node scripts/test-loading-ui.cjs` against an isolated test server. This includes a real 30-second timeout and virtual-time tests for chained requests and slow response bodies.
+
+### UI polish
+
+- Shared button, form, dialog and navigation refinements support light/dark themes, keyboard focus and reduced motion.
+- Installation is a single entry in the existing header menu; the guide restores menu focus on close.
+- Responsive UI sweep: `NODE_PATH=/path/to/playwright/node_modules KAGOPITA_TEST_URL=http://127.0.0.1:3001 node scripts/test-ui-polish.cjs` (use an isolated test server, not production).
+
 ### PWA installation
 
 Kagopita can be installed as a standalone web app. `public/manifest.webmanifest` uses the existing cart branding, with checked-in 192×192 and 512×512 PNGs. No new runtime dependency is required. To regenerate only these icons, run `scripts/generate-pwa-icons.cjs` with the same optional build-time `sharp` tooling used for existing brand assets.
 
 - **Android:** “Install Kagopita” appears only after the browser supplies `beforeinstallprompt`. It opens the browser's native prompt, hides after installation, and waits for a new eligible event after dismissal. Browser eligibility/engagement rules still apply.
-- **iPhone/iPad:** “How to Install” opens text-only Safari instructions, including desktop-UA iPadOS detection. Installation is manual using **Share → Add to Home Screen → Open as Web App (if offered) → Add**. Instructions use the existing language system, including Japanese and English.
+- **iPhone/iPad:** “How to Install” in the header menu opens Safari instructions with outlined Share and Add to Home Screen symbols, including desktop-UA iPadOS detection. Installation is manual using **Share → Add to Home Screen → Open as Web App (if offered) → Add**. Instructions use the existing language system, including Japanese and English.
 - Desktop and already-standalone windows do not show installation controls. The install modal supports Escape, a Close button, focus return, mobile scrolling, and the existing themes.
 - `public/sw.js` registers only in a secure context (HTTPS, or localhost for development). Its cache is restricted to the two public icons and the generic bilingual offline page. It does **not** cache authenticated HTML, JavaScript/CSS, API responses, session information, or shopping data. Shopping operations still require an internet connection. All app navigations try the network first, so deployments are not pinned to an old cached app shell.
 - The existing Express server serves the manifest, icons and worker. The worker route disables HTTP caching for update checks. No changes to VPS configuration, `.env`, or deployment automation are required. Production must serve HTTPS and allow `/manifest.webmanifest`, `/sw.js`, `/offline.html`, and `/icons/` from the same origin.
 
 Run `NODE_PATH=<test-env>/node_modules node scripts/test-pwa-ui.cjs` with Playwright available separately. The test uses a temporary server/database and checks emulated Android/iOS/iPadOS/desktop flows, JA/EN instructions, standalone hiding, manifest/icon validity, worker control, cache contents, and offline recovery. It is **not physical-device testing**. After deployment, manually install on Android Chrome and Safari on an iPhone/iPad, then launch from the home screen and verify standalone mode and normal sign-in/list sharing.
+
+## Member roles and item notifications
+
+The creator is the permanent **作成者（オーナー）**. Only the creator can appoint **管理者** (delegated administrators). Administrators can edit items and manage ordinary editors/members, but cannot change/remove the creator or appoint/manage other administrators. Ownership is not transferable. Editors manage items; **メンバー** (renamed from viewer) can read and check/uncheck items only. New invitees always start as members, in both guest and account invite flows. The API enforces the same rules as the custom role dropdown. Leaving as the creator, including deleting the creator's account, deletes the list, items, history and list notifications for everyone; leaving as any other role does not. The leave confirmation explains the distinction. Migration preserves existing editors and maps viewers to members, recovering the original creator from retained creation activity where available, otherwise retaining the current owner.
+
+The header bell opens a **menu-style in-app notification drawer**. Other members' item changes create persistent per-recipient notifications. The server returns 10 notifications per page with a global unread badge; there is no automatic 100-row truncation. “Mark all as read” deletes the current user's notifications through the latest observed ID across all pages, not other users' inboxes; concurrent newer arrivals are retained. Notifications remain cleared after restart. The drawer supports bell toggle, close button, outside pointer dismissal and Escape. SSE and polling catch up missed changes. Removed members lose their list notifications. This is not closed-app OS push.
+
+Run `NODE_PATH=<test-env>/node_modules node scripts/test-member-roles.cjs` for isolated API and real mobile-browser checks, and `node scripts/test-role-migration.cjs` for previous-schema migration, recorded creator recovery, notification preservation and restart integrity. Neither test touches live accounts or lists.
+
+
+## AdSense preparation
+
+The main app includes one official AdSense publisher loader for `ca-pub-5805938506004625`. Three labeled responsive containers sit below the header, below the shopping-list content, and at the bottom of the main content, outside fixed navigation and input controls. No ads or placeholder ads are supplied. Unconfigured/loading/unfilled containers collapse without consuming space.
+
+Actual ads are **not live**: approval of kagopita.com by Google AdSense and valid responsive Display ad slot IDs are still required. In `public/js/ads.js`, replace the empty strings in `slots` with the real IDs for this publisher. Never invent IDs. Units initialize once when their placement is visible; no automatic refresh or ad interactions are implemented. Check the site's AdSense account for approval, consent and ads.txt requirements before enabling units. Keep any AdSense Auto ads setting consistent with the desired manual placements; Auto ads are controlled separately by Google.
+
+Verify the loader occurs only once, the slots remain empty until issued by Google, and all three containers are hidden without slots. Verify 320px, tablet and desktop widths in both themes and exercise shopping-list navigation and CRUD using isolated test data.

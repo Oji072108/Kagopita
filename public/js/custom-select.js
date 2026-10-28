@@ -1,7 +1,9 @@
 /* Keep native selects as the data/form source, with a consistent accessible UI. */
 (() => {
   let opened = null;
-  document.querySelectorAll('select').forEach(select => {
+  let sequence = 0;
+  function enhance(root = document) { root.querySelectorAll('select:not(.custom-select-source)').forEach(select => {
+    select.id ||= `custom-select-${++sequence}`;
     const wrapper = document.createElement('div');
     wrapper.className = 'custom-select';
     select.before(wrapper);
@@ -37,17 +39,23 @@
     trigger.setAttribute('aria-controls', list.id);
     wrapper.append(trigger, list);
     function close(restoreFocus = false) {
+      const wasOpen = !list.hidden;
       list.hidden = true;
       trigger.setAttribute('aria-expanded', 'false');
       wrapper.classList.remove('is-open');
       if (opened?.wrapper === wrapper) opened = null;
       if (restoreFocus) trigger.focus();
+      if (wasOpen) wrapper.dispatchEvent(new CustomEvent('kagopita:select-close', {bubbles:true}));
     }
+    let optionsSignature = null;
     function sync() {
       value.textContent = select.selectedOptions[0]?.textContent || '選択してください';
       value.dataset.i18nIgnore = select.selectedOptions[0]?.dataset.i18nIgnore || 'false';
       value.dataset.i18nSource = select.selectedOptions[0]?.dataset.i18nSource || select.selectedOptions[0]?.textContent || '選択してください';
       trigger.disabled = select.disabled;
+      const signature = JSON.stringify(Array.from(select.options, option => [option.value, option.textContent, option.disabled, option.selected, option.dataset.i18nIgnore, option.dataset.i18nSource]));
+      if (signature === optionsSignature) return;
+      optionsSignature = signature;
       list.replaceChildren(...Array.from(select.options, option => {
         const button = document.createElement('button');
         button.type = 'button';
@@ -79,7 +87,8 @@
       const rect = trigger.getBoundingClientRect();
       const dialog = select.closest('dialog, .header-navigation');
       const bounds = dialog?.getBoundingClientRect();
-      const bottom = Math.min(innerHeight - 12, bounds ? bounds.bottom - 18 : innerHeight - 12);
+      const navigation = select.closest('.member-role-controls') ? document.querySelector('.bottom-nav')?.getBoundingClientRect() : null;
+      const bottom = Math.min(innerHeight - 12, navigation?.top || innerHeight, bounds ? bounds.bottom - 18 : innerHeight - 12) - (navigation ? 12 : 0);
       const top = Math.max(12, bounds ? bounds.top + 18 : 12);
       const below = bottom - rect.bottom - 6;
       const above = rect.top - top - 6;
@@ -107,9 +116,7 @@
     });
     // Safari can report a null focus destination while tapping the trigger.
     // Close on actual outside focus, not that temporary blur (which reopened it).
-    document.addEventListener('focusin', event => {
-      if (!wrapper.contains(event.target)) close();
-    });
+
     select.addEventListener('change', sync);
     select.form?.addEventListener('reset', () => setTimeout(sync, 0));
     new MutationObserver(sync).observe(select, {childList: true, subtree: true, attributes: true});
@@ -121,6 +128,11 @@
     });
     select.closest('dialog')?.addEventListener('close', () => close());
     sync();
+  }); }
+  window.KagopitaSelects = {enhance};
+  enhance();
+  document.addEventListener('focusin', event => {
+    if (opened && !opened.wrapper.contains(event.target)) opened.close();
   });
   document.addEventListener('pointerdown', event => {
     if (opened && !opened.wrapper.contains(event.target)) opened.close();

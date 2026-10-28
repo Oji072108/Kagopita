@@ -1,0 +1,33 @@
+/* Collapse unconfigured, loading and unfilled units. Never cover app controls. */
+.ad-container[hidden] { display: none !important; }
+.ad-container {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  max-height: 0;
+  margin: 0;
+  overflow: hidden;
+  visibility: hidden;
+  contain: inline-size;
+}
+.ad-container.is-filled {
+  max-height: none;
+  margin: 24px auto;
+  padding: 16px 0;
+  visibility: visible;
+  border-block: 1px solid var(--border, #dce5dc);
+}
+.ad-label {
+  display: block;
+  margin-bottom: 10px;
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--text-light, #737d73);
+  text-align: center;
+  font-style: normal;
+}
+.ad-container .adsbygoogle { display: block; width: 100%; max-width: 100%; min-width: 0; }
+@media (max-width: 600px) {
+  .ad-container.is-filled { margin-block: 20px; padding-block: 12px; }
+}

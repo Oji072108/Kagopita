@@ -1,4 +1,5 @@
-.pwa-install { display: grid; justify-items: start; gap: 8px; margin-bottom: 16px; }
+.pwa-install { display: grid; gap: 8px; min-width: 0; }
+.pwa-install .share-message { padding-inline: 12px; }
 .pwa-install .share-message:empty { display: none; }
 .pwa-install .share-message { margin: 0; }
 .pwa-install-dialog .share-content { display: grid; gap: 16px; }
@@ -6,3 +7,20 @@
 .pwa-install-steps { margin: 0; padding-left: 1.5em; line-height: 1.8; overflow-wrap: anywhere; }
 .pwa-install-steps li + li { margin-top: 8px; }
 .pwa-install-dialog button:focus-visible, .pwa-install button:focus-visible { outline: 3px solid var(--primary); outline-offset: 3px; }
+
+/* Installation guide: readable steps with Safari-style action symbols. */
+.pwa-install-dialog .share-content { padding: 24px; gap: 20px; }
+.pwa-install-dialog .panel-title { margin: 0; padding: 0 0 16px; }
+.pwa-install-steps { list-style: none; counter-reset: install-step; padding: 0; display: grid; gap: 12px; }
+.pwa-install-steps li { counter-increment: install-step; display: flex; align-items: baseline; gap: 12px; padding: 12px; border: 1px solid var(--border); border-radius: 12px; font-size: 14px; line-height: 1.7; }
+.pwa-install-steps li + li { margin: 0; }
+.pwa-install-steps li::before { content: counter(install-step, decimal-leading-zero); flex: 0 0 auto; font-size: 12px; font-weight: 900; color: var(--primary-dark); font-variant-numeric: tabular-nums; }
+@media (max-width: 360px) { .pwa-install-dialog .share-content { padding: 18px; gap: 16px; } }
+
+.pwa-step-content { display: grid; gap: 10px; min-width: 0; color: inherit; }
+.pwa-step-icon { display: block; width: 32px; height: 36px; color: var(--text); }
+.pwa-step-content > span { color: inherit; }
+/* The programmatically focused heading announces the guide without a control ring. */
+#pwaInstallTitle:focus { outline: none; }
+.pwa-install-steps li { align-items: center; }
+.pwa-install-steps .pwa-step-content { grid-template-columns: 32px minmax(0, 1fr); align-items: center; gap: 12px; color: var(--text); }

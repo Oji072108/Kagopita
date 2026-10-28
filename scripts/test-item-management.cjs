@@ -30,6 +30,7 @@ const net = require('node:net');
     const root = `/api/channels/${channel.id}`;
     const { data: invite } = await request(a.cookie, root + '/invites', 'POST', {});
     await request(b.cookie, '/api/invites/accept', 'POST', { invite: invite.inviteCode });
+    await request(a.cookie, root + `/members/${b.data.user.id}/role`, 'PATCH', {role:'editor'});
     const values = { name: '牛乳', category: '乳製品', qty: '2本', assignedTo: b.data.user.id };
     const { data: created } = await request(a.cookie, root + '/items', 'POST', values, 201);
     const itemUrl = root + `/items/${created.item.id}`;
