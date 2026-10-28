@@ -36,17 +36,6 @@ const terms = require('../terms.json');
             await page.evaluate(tab => switchTab(tab), tab);
             await page.locator(`#view-${tab}`).waitFor();
             assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `Overflow: ${dark}/${language}/${width}/${tab}`);
-            const navigationFits = await page.locator('.bottom-nav').evaluate(nav => {
-              const bounds = nav.getBoundingClientRect();
-              return [...nav.querySelectorAll('.nav-item')].filter(button => button.getClientRects().length).every(button => {
-                const hit = button.getBoundingClientRect();
-                return hit.width >= 44 && [...button.querySelectorAll('i, span')].every(child => {
-                  const box = child.getBoundingClientRect();
-                  return box.left >= hit.left - 1 && box.right <= hit.right + 1 && box.top >= bounds.top && box.bottom <= bounds.bottom;
-                });
-              });
-            });
-            assert.ok(navigationFits, `Magnified navigation stays inside its touch targets: ${dark}/${language}/${width}/${tab}`);
             if (language === 'en' && width === 390) await page.screenshot({ path: `/tmp/kagopita-polish-${tab}-${dark ? 'dark' : 'light'}.png` });
             layouts++;
           }

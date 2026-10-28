@@ -39,34 +39,7 @@
 /* Make selected destinations read as a single, calm navigation system. */
 .bottom-nav { box-shadow: 0 -4px 20px #183d2208; }
 .nav-item { color: var(--muted); justify-content: center; transition: background .16s ease, color .16s ease; }
-/* Selected tab behaves like a small glass magnifying lens. The button's hit
-   area stays fixed; only its contents grow, so neighboring tabs never move. */
-.bottom-nav .nav-item { position: relative; isolation: isolate; }
-.bottom-nav .nav-item::before {
-  content: ''; position: absolute; inset: 3px 1px; z-index: -1;
-  border: 1px solid transparent; border-radius: 18px;
-  opacity: 0; transform: scale(.92);
-  transition: opacity .22s ease, transform .22s ease;
-  pointer-events: none;
-}
-.bottom-nav .nav-item > i, .bottom-nav .nav-item > span {
-  transform-origin: center; transition: transform .24s cubic-bezier(.2,.75,.25,1), color .16s ease;
-}
-.bottom-nav .nav-item.active { background: transparent; color: var(--primary-dark); }
-.bottom-nav .nav-item.active::before {
-  opacity: 1; transform: scale(1);
-  background: linear-gradient(145deg, color-mix(in srgb, var(--primary-light) 82%, white), var(--primary-light));
-  border-color: color-mix(in srgb, var(--primary) 18%, transparent);
-  box-shadow: inset 0 1px 1px #ffffffb3, 0 3px 10px #183d2210;
-  backdrop-filter: blur(12px);
-}
-.bottom-nav .nav-item.active > i { transform: translateY(-2px) scale(1.18); }
-.bottom-nav .nav-item.active > span { transform: scale(1.04); font-weight: 900; }
-.dark-mode .bottom-nav .nav-item.active::before {
-  background: linear-gradient(145deg, #42644bcc, #294431cc);
-  border-color: #b4e5a838;
-  box-shadow: inset 0 1px 1px #d6ffda24, 0 3px 12px #0002;
-}
+.nav-item.active { background: var(--primary-light); color: var(--primary-dark); }
 .nav-item.active span, .dark-mode .nav-item.active span { color: inherit; }
 .header-navigation { box-shadow: 0 16px 48px #102b2424, 0 2px 6px #102b240c; }
 .header-navigation .dialog-title-row { padding: 2px 10px 0; }
