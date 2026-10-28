@@ -6,7 +6,7 @@ let currentMemberRole = null;
 let channels = [];
 let favoritesRequestId = 0;
 const canEditItems = () => ['owner', 'admin', 'editor'].includes(currentMemberRole);
-const memberRoleLabel = role => ({owner: '作成者（オーナー）', admin: '管理者（オーナー）', editor: '編集者', member: 'メンバー'})[role] || 'メンバー';
+const memberRoleLabel = role => ({owner: '作成者（オーナー）', admin: '管理者', editor: '編集者', member: 'メンバー'})[role] || 'メンバー';
 
 const $ = id => document.getElementById(id);
 const shoppingLanguage = () => localStorage.getItem('kagopita-language') || 'ja';

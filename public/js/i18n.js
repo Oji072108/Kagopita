@@ -1,7 +1,7 @@
 /* Canonical Japanese keys, translated consistently for static and rebuilt controls. */
 window.kagopitaLocaleRows = [
 ["作成者（オーナー）", "Creator (owner)", "생성자 (소유자)", "创建者（所有者）", "Creador (propietario)"],
-["管理者（オーナー）", "Administrator (owner)", "관리자 (소유자)", "管理员（所有者）", "Administrador (propietario)"],
+["管理者", "Administrator", "관리자", "管理员", "Administrador"],
 ["既読にすると通知は削除されます。", "Marking all as read clears these notifications.", "모두 읽음 처리하면 알림이 삭제됩니다.", "全部标为已读将清除这些通知。", "Marcar todo como leído elimina estas notificaciones."],
 ["通知のページ", "Notification pages", "알림 페이지", "通知页面", "Páginas de notificaciones"],
 ["作成者は管理者を任命できます。管理者はメンバー管理、編集者は商品の編集、メンバーはチェックのみできます。", "Only the creator appoints administrators. Administrators manage members, editors edit items, and members only check items.", "생성자만 관리자를 지정합니다. 관리자는 멤버 관리, 편집자는 항목 편집, 멤버는 체크만 할 수 있습니다.", "仅创建者可任命管理员。管理员管理成员，编辑者编辑商品，成员只能勾选商品。", "Solo el creador nombra administradores. Los administradores gestionan miembros, los editores editan artículos y los miembros solo los marcan."],
