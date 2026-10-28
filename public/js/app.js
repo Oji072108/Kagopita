@@ -250,6 +250,7 @@ function updateChannelControls() {
 
 function resetSignedOutState() {
   window.KagopitaLiveUpdates.stop();
+  shoppingRenderState = '';
   ++channelSelectionVersion;
   currentUser = null;
   currentChannelId = null;
@@ -274,13 +275,14 @@ async function refreshChannels(preferredId = currentChannelId) {
   updateChannelControls();
   if (currentChannelId) await loadShoppingList();
   else {
+    shoppingRenderState = '';
     $('categoriesContainer').replaceChildren();
     $('familyFeedContainer').replaceChildren();
   }
   window.KagopitaLiveUpdates.start(async () => {
     if (!currentUser) return;
     await refreshChannels();
-    if (!currentChannelId) return;
+    if (!currentChannelId || document.querySelector('dialog[open]')) return;
     if (currentTab === 'members') await loadMembers();
     if (currentTab === 'add') await loadFavorites();
   }, data => {
@@ -301,6 +303,7 @@ async function selectChannel(channelId) {
 
 let shoppingData = null;
 let shoppingRequestId = 0;
+let shoppingRenderState = '';
 localizationReady = true;
 let shoppingMembers = [];
 let filterChannelId = null;
@@ -374,6 +377,8 @@ async function loadShoppingList() {
   try {
     const [data, { members }] = await Promise.all([api(channelUrl('/shopping-list')), api(channelUrl('/members'))]);
     if (requestId !== shoppingRequestId || channelId !== currentChannelId) return false;
+    const renderState = JSON.stringify([data, members]);
+    if (filterChannelId === channelId && shoppingRenderState === renderState) return true;
     if (filterChannelId !== channelId) {
       $('itemSearch').value = ''; $('categoryFilter').value = ''; $('assignmentFilter').value = '';
       $('searchDetails').open = false;
@@ -393,9 +398,11 @@ async function loadShoppingList() {
     $('assignmentFilter').value = [...$('assignmentFilter').options].some(o => o.value === selectedAssignment) ? selectedAssignment : '';
     renderShoppingList(data);
     renderDeletedItems(data.deletedItems || []);
+    shoppingRenderState = renderState;
     return true;
   } catch (error) {
     if (requestId !== shoppingRequestId || channelId !== currentChannelId) return false;
+    shoppingRenderState = '';
     console.error(error);
     $('categoriesContainer').textContent = error.message;
     return false;
