@@ -60,8 +60,8 @@ const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
     const key=(await request(b.cookie,'/api/push/config')).data.publicKey;
     assert.equal(Buffer.from(key,'base64url').length,65);
     for(const [user,sub] of [[a,actor],[b,first],[b2,second],[outsider,outside]])
-      await request(user.cookie,'/api/push/subscriptions','POST',{subscription:sub},201,base);
-    await request(b.cookie,'/api/push/subscriptions','POST',{subscription:first},201);
+      await request(user.cookie,'/api/push/subscriptions','POST',{subscription:sub,language:user===b?'en':user===b2?'es':'ja'},201,base);
+    await request(b.cookie,'/api/push/subscriptions','POST',{subscription:first,language:'en'},201);
     assert.equal(db.prepare('SELECT COUNT(*) n FROM push_devices').get().n,4,'idempotent devices');
     const invalid=[{...first,endpoint:'https://127.0.0.1/private'}, {...first,endpoint:'https://fcm.googleapis.com.attacker.test/send'},
       {...first,endpoint:'http://fcm.googleapis.com/send'}, {...first,endpoint:'https://fcm.googleapis.com:444/send'}, {...first,keys:{p256dh:'bad',auth:'bad'}}];
@@ -70,23 +70,32 @@ const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
     await request(outsider.cookie,'/api/push/test','POST',{endpoint:first.endpoint},404);
     await request(outsider.cookie,'/api/push/subscriptions','DELETE',{endpoint:first.endpoint});
     assert.equal((await request(b.cookie,'/api/push/status','POST',{endpoint:first.endpoint})).data.enabled,true);
-    const add = name => request(a.cookie,'/api/channels/'+channel.id+'/items','POST',{name,category:'その他',qty:'1個'},201);
-    await add('牛乳'); await waitFor(()=>sent().length===2);
+    const add = name => request(a.cookie,'/api/channels/'+channel.id+'/items','POST',{name,category:'その他',qty:'10個'},201);
+    await add('トマト'); await waitFor(()=>sent().length===2);
     assert.deepEqual(new Set(sent().map(x=>x.endpoint)),new Set([first.endpoint,second.endpoint]));
-    assert.ok(sent().every(x=>x.encrypted && !x.payload.body.includes('牛乳')));
+    assert.ok(sent().every(x=>x.encrypted));
+    assert.equal(sent().find(x=>x.endpoint===first.endpoint).payload.body,'作成者 added: tomato (10 pieces)');
+    assert.equal(sent().find(x=>x.endpoint===second.endpoint).payload.body,'作成者 añadió: tomate (10 unidades)');
+    assert.equal(sent().find(x=>x.endpoint===first.endpoint).payload.title,'Item added');
+    await request(outsider.cookie,'/api/push/status','POST',{endpoint:first.endpoint,language:'ko'});
+    assert.equal(db.prepare('SELECT language FROM push_devices WHERE endpoint=?').get(first.endpoint).language,'en','Outsider cannot change device language');
+    await request(b.cookie,'/api/push/status','POST',{endpoint:first.endpoint,language:'ko'});
+    assert.equal(db.prepare('SELECT language FROM push_devices WHERE endpoint=?').get(first.endpoint).language,'ko');
+    await request(b.cookie,'/api/push/status','POST',{endpoint:first.endpoint,language:'en'});
     // Repeated registration must preserve queued jobs, and the queue survives restart.
     fs.writeFileSync(failure,JSON.stringify({code:503})); await add('パン');
     await waitFor(()=>db.prepare('SELECT COUNT(*) n FROM push_queue WHERE attempts > 0').get().n===2);
-    await request(b.cookie,'/api/push/subscriptions','POST',{subscription:first},201);
+    await request(b.cookie,'/api/push/subscriptions','POST',{subscription:first,language:'en'},201);
     assert.equal(db.prepare('SELECT COUNT(*) n FROM push_queue').get().n,2);
-    await stop(); await boot();
+    await stop(); db.exec('ALTER TABLE push_devices DROP COLUMN language'); await boot();
+    assert.equal(db.prepare('SELECT language FROM push_devices WHERE endpoint=?').get(first.endpoint).language,'ja','Old-device schema migrates without losing subscriptions or jobs');
     assert.equal((await request(b.cookie,'/api/push/config')).data.publicKey,key,'stable VAPID keys across restart');
     fs.unlinkSync(failure); db.prepare('UPDATE push_queue SET next_at=0').run(); await waitFor(()=>sent().length===4);
     // Gone endpoints are removed, not retried indefinitely.
     fs.writeFileSync(failure,JSON.stringify({code:410})); await add('卵');
     await waitFor(()=>db.prepare('SELECT COUNT(*) n FROM push_devices WHERE user_id=?').get(b.data.user.id).n===0);
     fs.unlinkSync(failure);
-    await request(b.cookie,'/api/push/subscriptions','POST',{subscription:first},201);
+    await request(b.cookie,'/api/push/subscriptions','POST',{subscription:first,language:'en'},201);
     await request(b2.cookie,'/api/push/subscriptions','POST',{subscription:second},201);
     await request(b.cookie,'/api/push/test','POST',{endpoint:first.endpoint},202);
     await request(b.cookie,'/api/push/test','POST',{endpoint:first.endpoint},429);
@@ -97,7 +106,7 @@ const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
     assert.equal(db.prepare('SELECT COUNT(*) n FROM push_queue WHERE notification_id IS NOT NULL').get().n,0);
     // Browser/account transfer clears queued jobs and only follows the explicitly opted-in account.
     fs.unlinkSync(failure);
-    await request(outsider.cookie,'/api/push/subscriptions','POST',{subscription:first},201);
+    await request(outsider.cookie,'/api/push/subscriptions','POST',{subscription:first,language:'en'},201);
     assert.equal((await request(b.cookie,'/api/push/status','POST',{endpoint:first.endpoint})).data.enabled,false);
     await request(b.cookie,'/api/logout','POST');
     assert.equal(db.prepare('SELECT COUNT(*) n FROM push_devices WHERE user_id=?').get(b.data.user.id).n,1,'Logging out one device preserves the other session');
@@ -111,6 +120,6 @@ const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
     assert.deepEqual(db.prepare('PRAGMA foreign_key_check').all(),[]);
     assert.equal(db.prepare('PRAGMA integrity_check').get().integrity_check,'ok');
     assert.equal(fs.statSync(path.join(temp,'web-push-vapid.json')).mode & 0o777,0o600);
-    console.log('PASS: encrypted two-device fanout, actor/outsider isolation, auth/origin/SSRF validation, idempotency, durable retry and VAPID persistence, 410 cleanup, test rate limit, member removal, logout, account transfer, unsubscribe, SQLite integrity.');
+    console.log('PASS: detailed per-device English/Spanish payloads, language synchronization/isolation, old-schema migration, encrypted two-device fanout, actor/outsider isolation, auth/origin/SSRF validation, idempotency, durable retry and VAPID persistence, 410 cleanup, test rate limit, member removal, logout, account transfer, unsubscribe, SQLite integrity.');
   } finally { await stop(); db?.close(); fs.rmSync(temp,{recursive:true,force:true}); }
 })().catch(error=>{console.error(error);process.exitCode=1;});

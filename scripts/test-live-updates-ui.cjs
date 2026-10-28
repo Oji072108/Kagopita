@@ -30,6 +30,8 @@ const {chromium}=require('playwright');
   const root=`/api/channels/${channel.id}`;
   const invite=await request(owner.cookie,root+'/invites','POST',{});
   await request(member.cookie,'/api/invites/accept','POST',{invite:invite.data.inviteCode});
+  // Joining grants read-only membership; the draft-preservation check needs an editor.
+  await request(owner.cookie,root+`/members/${member.data.user.id}/role`,'PATCH',{role:'editor'});
   browser=await chromium.launch({headless:true,args:['--no-sandbox']});
   const errors=[];
   const open=async(cookie,noEvents=false)=>{

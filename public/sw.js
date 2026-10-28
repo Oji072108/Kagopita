@@ -22,8 +22,8 @@ self.addEventListener('fetch', event => {
 self.addEventListener('push', event => {
   let data = {};
   try { data = event.data?.json() || {}; } catch {}
-  event.waitUntil(self.registration.showNotification('カゴピタ', {
-    body: typeof data.body === 'string' ? data.body.slice(0, 160) : '共有リストが更新されました。',
+  event.waitUntil(self.registration.showNotification(typeof data.title === 'string' && data.title.trim() ? data.title.slice(0, 80) : 'リストが更新されました', {
+    body: typeof data.body === 'string' ? data.body.slice(0, 320) : '共有リストが更新されました。',
     icon: '/icons/pwa-192.png', badge: '/icons/pwa-192.png',
     tag: typeof data.tag === 'string' ? data.tag.slice(0, 100) : 'kagopita-update',
     data: { url: '/?notifications=1' }

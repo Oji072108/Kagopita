@@ -18,7 +18,7 @@ function nextDue(recurrence, from = new Date()) {
 function renewDueItems(broadcast = () => {}) {
   const timestamp = now();
   const rows = transaction(() => {
-    const due = db.prepare(`SELECT shopping_items.id, channel_id, shopping_items.name FROM shopping_items
+    const due = db.prepare(`SELECT shopping_items.id, channel_id, shopping_items.name, shopping_items.qty FROM shopping_items
       JOIN channels ON channels.id = shopping_items.channel_id
       WHERE recurrence != 'none' AND completed = 1 AND deleted_at IS NULL
       AND archived_at IS NULL AND next_due_at <= ?`).all(timestamp);
@@ -29,7 +29,7 @@ function renewDueItems(broadcast = () => {}) {
     }
     return due;
   });
-  for (const item of rows) notifyItemChange(item.channel_id, null, 'recurring', item.name, broadcast);
+  for (const item of rows) notifyItemChange(item.channel_id, null, 'recurring', `${item.name} (${item.qty})`, broadcast);
   for (const channelId of new Set(rows.map(row => row.channel_id))) broadcast({ type: 'update', channelId });
   return rows.length;
 }

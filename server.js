@@ -1,6 +1,7 @@
 require('dotenv').config();
 
 const express = require('express');
+const compression = require('compression');
 const crypto = require('crypto');
 const path = require('path');
 const fs = require('fs');
@@ -31,6 +32,8 @@ const mailTransporter = process.env.SMTP_USER && process.env.SMTP_PASS
   : null;
 app.locals.broadcast = broadcast;
 
+// Leave event streams uncompressed so updates are never held in a gzip buffer.
+app.use(compression({ filter: (req, res) => req.path !== '/api/events' && compression.filter(req, res) }));
 app.use(express.json({ limit: '700kb' }));
 app.use(express.urlencoded({ extended: true }));
 app.use((req, res, next) => {
@@ -41,8 +44,22 @@ app.use((req, res, next) => {
 app.get('/vendor/qrcode.min.js', (req, res) => {
   res.sendFile(path.join(__dirname, 'node_modules', 'qrcodejs', 'qrcode.min.js'));
 });
-app.use('/css', express.static(path.join(__dirname, 'public', 'css')));
-app.use('/js', express.static(path.join(__dirname, 'public', 'js')));
+// Fingerprint public code at startup. Changed files get new URLs automatically.
+const assetVersions = new Map();
+for (const directory of ['css', 'js']) {
+  for (const name of fs.readdirSync(path.join(__dirname, 'public', directory))) {
+    if (!/\.(css|js)$/.test(name)) continue;
+    const file = path.join(__dirname, 'public', directory, name);
+    assetVersions.set(`/${directory}/${name}`, crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex').slice(0, 16));
+  }
+}
+const staticOptions = { setHeaders(res) {
+  const url = new URL(res.req.originalUrl, 'http://localhost');
+  const version = assetVersions.get(url.pathname);
+  if (version && url.searchParams.get('v') === version) res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+} };
+app.use('/css', express.static(path.join(__dirname, 'public', 'css'), staticOptions));
+app.use('/js', express.static(path.join(__dirname, 'public', 'js'), staticOptions));
 app.get('/sw.js', (req, res) => {
   res.set('Cache-Control', 'no-cache');
   res.sendFile(path.join(__dirname, 'public', 'sw.js'));
@@ -52,7 +69,9 @@ app.get(['/', '/index.html'], (req, res) => {
   const publicUrl = (process.env.PUBLIC_URL || `http://localhost:${PORT}`).replace(/\/+$/, '');
   const safeUrl = publicUrl.replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
   const html = fs.readFileSync(path.join(__dirname, 'public', 'index.html'), 'utf8');
-  res.type('html').send(html.replaceAll('__PUBLIC_URL__', safeUrl));
+  res.set('Cache-Control', 'no-cache');
+  res.type('html').send(html.replaceAll('__PUBLIC_URL__', safeUrl).replace(/((?:src|href)=")(\/(?:js|css)\/[^"?]+)(?:\?[^"\s]*)?"/g,
+    (match, prefix, asset) => assetVersions.has(asset) ? `${prefix}${asset}?v=${assetVersions.get(asset)}"` : match));
 });
 app.use(express.static(path.join(__dirname, 'public')));
 

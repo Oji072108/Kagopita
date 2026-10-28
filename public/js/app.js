@@ -130,6 +130,7 @@ function applyLanguage(language) {
   document.querySelectorAll('.member-role-select option').forEach(option => { option.textContent = translateFeature(memberRoleLabel(option.value)); });
   window.KagopitaNotifications?.render();
   window.KagopitaPush?.render();
+  window.KagopitaPush?.syncLanguage();
   if (localizationReady) { renderJoinedChannels(); updateQuantityPreview('input'); updateQuantityPreview('edit'); }
   if (currentUser) updateAccountStatus(language);
   const trigger = $('languageSelect');

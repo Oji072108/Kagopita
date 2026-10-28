@@ -15,7 +15,7 @@ router.use((req, res, next) => {
   next();
 });
 
-function logActivity(req, action, item = '') {
+function logActivity(req, action, item = '', notificationItem = item) {
   db.prepare(`
     INSERT INTO activity_log (channel_id, user_id, username, action, item, created_at)
     VALUES (?, ?, ?, ?, ?, ?)
@@ -26,7 +26,7 @@ function logActivity(req, action, item = '') {
       SELECT id FROM activity_log WHERE channel_id = ? ORDER BY id DESC LIMIT 100
     )
   `).run(req.channel.id, req.channel.id);
-  notifyItemChange(req.channel.id, req.user, action, item, req.app.locals.broadcast);
+  notifyItemChange(req.channel.id, req.user, action, notificationItem, req.app.locals.broadcast);
   req.app.locals.broadcast({ type: 'update', channelId: req.channel.id });
 }
 
@@ -213,14 +213,14 @@ router.patch('/items/:id/toggle', (req, res) => {
     return res.status(400).json({ error: 'Invalid item id.' });
   }
   const item = db.prepare(`
-    SELECT id, name, completed, recurrence FROM shopping_items WHERE id = ? AND channel_id = ? AND deleted_at IS NULL
+    SELECT id, name, qty, completed, recurrence FROM shopping_items WHERE id = ? AND channel_id = ? AND deleted_at IS NULL
   `).get(id, req.channel.id);
   if (!item) return res.status(404).json({ error: 'Item not found.' });
 
   const completed = item.completed ? 0 : 1;
   db.prepare('UPDATE shopping_items SET completed = ?, next_due_at = ? WHERE id = ? AND channel_id = ? AND deleted_at IS NULL')
     .run(completed, completed ? nextDue(item.recurrence) : null, id, req.channel.id);
-  logActivity(req, completed ? 'completed' : 'uncompleted', item.name);
+  logActivity(req, completed ? 'completed' : 'uncompleted', item.name, `${item.name} (${item.qty})`);
   res.json({ message: 'Status updated successfully.' });
 });
 
@@ -229,22 +229,22 @@ router.delete('/items/:id', (req, res) => {
   if (!Number.isSafeInteger(id) || id <= 0) {
     return res.status(400).json({ error: 'Invalid item id.' });
   }
-  const item = db.prepare('SELECT name FROM shopping_items WHERE id = ? AND channel_id = ? AND deleted_at IS NULL')
+  const item = db.prepare('SELECT name, qty FROM shopping_items WHERE id = ? AND channel_id = ? AND deleted_at IS NULL')
     .get(id, req.channel.id);
   if (!item) return res.status(404).json({ error: 'Item not found.' });
   db.prepare('UPDATE shopping_items SET deleted_at = ? WHERE id = ? AND channel_id = ? AND deleted_at IS NULL')
     .run(now(), id, req.channel.id);
-  logActivity(req, 'deleted', item.name);
+  logActivity(req, 'deleted', item.name, `${item.name} (${item.qty})`);
   res.json({ message: 'Item deleted.' });
 });
 
 router.post('/items/:id/restore', (req, res) => {
   const id = Number(req.params.id);
   if (!Number.isSafeInteger(id) || id <= 0) return res.status(400).json({ error: '商品IDが無効です。' });
-  const item = db.prepare('SELECT name FROM shopping_items WHERE id = ? AND channel_id = ? AND deleted_at IS NOT NULL').get(id, req.channel.id);
+  const item = db.prepare('SELECT name, qty FROM shopping_items WHERE id = ? AND channel_id = ? AND deleted_at IS NOT NULL').get(id, req.channel.id);
   if (!item) return res.status(404).json({ error: '削除済みの商品が見つかりません。' });
   db.prepare('UPDATE shopping_items SET deleted_at = NULL, completed = 0, next_due_at = NULL WHERE id = ? AND channel_id = ?').run(id, req.channel.id);
-  logActivity(req, 'restored', item.name);
+  logActivity(req, 'restored', item.name, `${item.name} (${item.qty})`);
   res.json({ message: '商品を復元しました。' });
 });
 
