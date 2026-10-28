@@ -12,6 +12,7 @@
     "dotenv": "^18.0.9",
     "express": "^4.21.2",
     "nodemailer": "^10.2.1",
-    "qrcodejs": "^1.0.0"
+    "qrcodejs": "^1.0.0",
+    "web-push": "^3.6.7"
   }
 }

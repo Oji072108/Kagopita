@@ -9,6 +9,18 @@ window.KagopitaNotifications = (() => {
     const labels = {added:'追加', edited:'編集', deleted:'削除', completed:'チェック', uncompleted:'チェック解除', restored:'復元', recurring:'繰り返し再開'};
     return `${entry.actorName} · ${labels[entry.action] || translateFeature('商品が更新されました')} · ${entry.item}`;
   }
+  let openFromPush = new URLSearchParams(location.search).get('notifications') === '1';
+  function openPushInbox() {
+    if (!userId || document.querySelector('dialog[open]')) { openFromPush = true; return; }
+    if (!element('notificationsDialog').classList.contains('is-open')) element('notificationsButton').click();
+    const url = new URL(location.href); url.searchParams.delete('notifications');
+    history.replaceState(null, '', url.pathname + url.search + url.hash);
+    openFromPush = false;
+  }
+  navigator.serviceWorker?.addEventListener('message', event => {
+    if (event.data?.type === 'kagopita:open-notifications') openPushInbox();
+  });
+  document.addEventListener('close', () => { if (openFromPush) openPushInbox(); }, true);
   function render() {
     element('notificationsButton').classList.toggle('hidden', !userId);
     const badge = element('notificationCount');
@@ -61,6 +73,7 @@ window.KagopitaNotifications = (() => {
       highestSeen = Math.max(highestSeen || 0, latest?.id || 0);
       element('notificationsError').textContent = '';
       render();
+      if (openFromPush) openPushInbox();
     } catch (error) {
       if (version === requestId && userId) element('notificationsError').textContent = error.message;
     }

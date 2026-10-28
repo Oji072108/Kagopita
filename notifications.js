@@ -7,7 +7,8 @@ function notifyItemChange(channelId, actor, action, item, broadcast = () => {}) 
   const insert = db.prepare(`INSERT INTO notifications (user_id, channel_id, actor_name, action, item, created_at)
     VALUES (?, ?, ?, ?, ?, ?)`);
   for (const { user_id: userId } of recipients) {
-    insert.run(userId, channelId, actor?.username || 'カゴピタ', action, item, now());
+    const result = insert.run(userId, channelId, actor?.username || 'カゴピタ', action, item, now());
+    require('./push').enqueue(Number(result.lastInsertRowid), userId);
     broadcast({ type: 'notifications', recipientId: userId });
   }
 }

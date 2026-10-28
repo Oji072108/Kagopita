@@ -129,6 +129,7 @@ function applyLanguage(language) {
   document.querySelectorAll('[data-member-role]').forEach(element => { element.textContent = translateFeature(memberRoleLabel(element.dataset.memberRole)); });
   document.querySelectorAll('.member-role-select option').forEach(option => { option.textContent = translateFeature(memberRoleLabel(option.value)); });
   window.KagopitaNotifications?.render();
+  window.KagopitaPush?.render();
   if (localizationReady) { renderJoinedChannels(); updateQuantityPreview('input'); updateQuantityPreview('edit'); }
   if (currentUser) updateAccountStatus(language);
   const trigger = $('languageSelect');
@@ -267,6 +268,8 @@ function updateChannelControls() {
 function resetSignedOutState() {
   window.KagopitaLiveUpdates.stop();
   window.KagopitaNotifications?.reset();
+  window.KagopitaPush?.setUser(null);
+  window.KagopitaPush?.clear();
   shoppingRenderState = '';
   ++channelSelectionVersion;
   currentUser = null;
@@ -285,6 +288,7 @@ async function refreshChannels(preferredId = currentChannelId) {
   const data = await api('/api/me');
   if (version !== channelSelectionVersion) return;
   currentUser = data.user;
+  window.KagopitaPush?.setUser(currentUser.id);
   channels = data.channels;
   window.KagopitaNotifications?.refresh(currentUser.id);
   const selected = channels.find(channel => channel.id === preferredId && !channel.archivedAt) || channels.find(channel => !channel.archivedAt) || null;
@@ -1397,6 +1401,7 @@ $('logoutButton').addEventListener('click', async event => {
   $('accountStatus').textContent = '';
   try {
     await api('/api/logout', { method: 'POST' });
+    await window.KagopitaPush?.clear();
     window.location.reload();
   } catch (error) {
     $('accountStatus').textContent = error.message;
