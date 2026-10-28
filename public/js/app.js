@@ -1435,7 +1435,7 @@ function renderNavigationShortcuts() {
   getShortcuts().forEach((key, index) => {
     const button = $(index ? 'shortcut-right' : 'shortcut-left');
     const [label, icon] = shortcutChoices[key];
-    button.innerHTML = `<i class="ph-bold ${icon}"></i><span>${label}</span>`;
+    button.innerHTML = `<i class="ph-bold ${icon}" aria-hidden="true"></i><span>${label}</span>`;
     button.disabled = (['complete', 'share'].includes(key) && currentMemberRole !== 'admin') || (key === 'account' && !currentUser);
     button.classList.toggle('hidden', key === 'members' && !currentChannelId);
     button.classList.toggle('active', key === currentTab);
