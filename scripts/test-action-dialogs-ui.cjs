@@ -4,6 +4,9 @@ const assert = require('node:assert/strict');
  const browser = await chromium.launch({headless:true,args:['--no-sandbox']});
  try {
   const page = await browser.newPage({viewport:{width:390,height:844},hasTouch:true,isMobile:true});
+  // Live-stream behavior has a separate real-SSE suite. Keep this fixture stable
+  // so reconnect catch-up cannot replace the control whose focus is under test.
+  await page.addInitScript(()=>{window.EventSource=class extends EventTarget{close(){}};});
   const errors=[],native=[],writes=[];
   page.on('pageerror', e=>errors.push(e.message));
   page.on('dialog', async d=>{native.push(d.type());await d.dismiss()});
@@ -64,7 +67,7 @@ const assert = require('node:assert/strict');
      await page.screenshot({path:`/tmp/kagopita-dialog-${dark?'dark':'light'}.png`,animations:'disabled'});
     }
     await cancel.tap();await dialog.waitFor({state:'hidden'});
-    assert.equal(await kick.evaluate(e=>e===document.activeElement),true);
+    await page.waitForFunction(()=>document.querySelector('.kick-button')===document.activeElement);
     await page.evaluate(()=>switchTab('account'));await touch('#deleteAccountButton');await assertFit();
     if(language==='en'&&width===390){
      colors[dark].delete=await page.locator('#deleteAccountButton').evaluate(e=>getComputedStyle(e).backgroundColor);

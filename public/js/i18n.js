@@ -1,5 +1,14 @@
 /* Canonical Japanese keys, translated consistently for static and rebuilt controls. */
 window.kagopitaLocaleRows = [
+['削除した商品は24時間後に完全に削除されます。', 'Deleted items are permanently removed after 24 hours.', '삭제한 상품은 24시간 후 영구 삭제됩니다.', '删除的商品将在24小时后永久删除。', 'Los productos eliminados se borran definitivamente tras 24 horas.'],
+['自動削除まで {hours}時間{minutes}分', 'Auto-delete in {hours}h {minutes}m', '자동 삭제까지 {hours}시간 {minutes}분', '距自动删除还有{hours}小时{minutes}分钟', 'Eliminación automática en {hours} h {minutes} min'],
+['まもなく自動削除', 'Auto-deleting shortly', '곧 자동 삭제됩니다', '即将自动删除', 'Se eliminará en breve'],
+['完全に削除', 'Delete forever', '영구 삭제', '永久删除', 'Eliminar definitivamente'],
+['商品を完全に削除しますか？', 'Delete this item forever?', '이 상품을 영구 삭제할까요?', '要永久删除此商品吗？', '¿Eliminar este producto definitivamente?'],
+['「{name}」を完全に削除します。この操作は取り消せません。', 'Permanently delete “{name}”? This cannot be undone.', '“{name}”을(를) 영구 삭제합니다. 이 작업은 취소할 수 없습니다.', '将永久删除“{name}”。此操作无法撤销。', '¿Eliminar “{name}” definitivamente? Esta acción no se puede deshacer.'],
+['削除済みの商品が見つかりません。', 'This deleted item is no longer available.', '삭제된 상품을 찾을 수 없습니다.', '此已删除商品已不存在。', 'Este producto eliminado ya no está disponible.'],
+['操作が多すぎます。{seconds}秒後にもう一度お試しください。', 'Too many actions. Try again in {seconds} seconds.', '요청이 너무 많습니다. {seconds}초 후에 다시 시도해 주세요.', '操作过于频繁。请在{seconds}秒后重试。', 'Demasiadas acciones. Inténtalo de nuevo en {seconds} segundos.'],
+['操作が多すぎます。少し待ってからもう一度お試しください。', 'Too many actions. Please wait a moment and try again.', '요청이 너무 많습니다. 잠시 후에 다시 시도해 주세요.', '操作过于频繁。请稍后重试。', 'Demasiadas acciones. Espera un momento e inténtalo de nuevo.'],
 ["通知を受け取りますか？", "Would you like notifications?", "알림을 받으시겠어요?", "要接收通知吗？", "¿Quieres recibir notificaciones?"],
 ["あとでメニューの「プッシュ通知」から変更できます。", "You can change this later under Push notifications in the menu.", "나중에 메뉴의 푸시 알림에서 변경할 수 있습니다.", "以后可在菜单的“推送通知”中更改。", "Puedes cambiarlo después en Notificaciones push del menú."],
 ["あとで", "Not now", "나중에", "暂不", "Ahora no"],

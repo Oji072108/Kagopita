@@ -2,6 +2,7 @@ const express = require('express');
 const { db, now } = require('../database');
 const { nextDue, renewDueItems } = require('../recurring');
 const { notifyItemChange } = require('../notifications');
+const { RETENTION_MS, purgeExpiredDeletedItems, scheduleDeletedItemCleanup } = require('../deleted-items');
 
 const router = express.Router();
 router.use((req, res, next) => {
@@ -31,6 +32,7 @@ function logActivity(req, action, item = '', notificationItem = item) {
 }
 
 router.get('/shopping-list', (req, res) => {
+  purgeExpiredDeletedItems(req.app.locals.broadcast);
   renewDueItems(req.app.locals.broadcast);
   const rows = db.prepare(`
     SELECT shopping_items.id, category, name, qty, completed, added_by, assigned_to, notes, price, recurrence, next_due_at,
@@ -67,7 +69,9 @@ router.get('/shopping-list', (req, res) => {
   res.json({
     categories,
     deletedItems: db.prepare(`SELECT id, name, qty, category, notes, price, recurrence, deleted_at AS deletedAt
-      FROM shopping_items WHERE channel_id = ? AND deleted_at IS NOT NULL ORDER BY deleted_at DESC, id DESC`).all(req.channel.id),
+      FROM shopping_items WHERE channel_id = ? AND deleted_at IS NOT NULL ORDER BY deleted_at DESC, id DESC`).all(req.channel.id)
+      .map(item => ({...item, expiresAt:new Date(Date.parse(item.deletedAt) + RETENTION_MS).toISOString()})),
+    serverNow: new Date().toISOString(),
     total: items.length,
     completed: items.filter(item => item.completed).length,
     familyFeed: activityLog
@@ -234,11 +238,13 @@ router.delete('/items/:id', (req, res) => {
   if (!item) return res.status(404).json({ error: 'Item not found.' });
   db.prepare('UPDATE shopping_items SET deleted_at = ? WHERE id = ? AND channel_id = ? AND deleted_at IS NULL')
     .run(now(), id, req.channel.id);
+  scheduleDeletedItemCleanup(req.app.locals.broadcast);
   logActivity(req, 'deleted', item.name, `${item.name} (${item.qty})`);
   res.json({ message: 'Item deleted.' });
 });
 
 router.post('/items/:id/restore', (req, res) => {
+  purgeExpiredDeletedItems(req.app.locals.broadcast);
   const id = Number(req.params.id);
   if (!Number.isSafeInteger(id) || id <= 0) return res.status(400).json({ error: '商品IDが無効です。' });
   const item = db.prepare('SELECT name, qty FROM shopping_items WHERE id = ? AND channel_id = ? AND deleted_at IS NOT NULL').get(id, req.channel.id);
@@ -246,6 +252,18 @@ router.post('/items/:id/restore', (req, res) => {
   db.prepare('UPDATE shopping_items SET deleted_at = NULL, completed = 0, next_due_at = NULL WHERE id = ? AND channel_id = ?').run(id, req.channel.id);
   logActivity(req, 'restored', item.name, `${item.name} (${item.qty})`);
   res.json({ message: '商品を復元しました。' });
+});
+
+router.delete('/items/:id/permanent', (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isSafeInteger(id) || id <= 0) return res.status(400).json({error:'商品IDが無効です。'});
+  purgeExpiredDeletedItems(req.app.locals.broadcast);
+  const removed = db.prepare(`DELETE FROM shopping_items
+    WHERE id = ? AND channel_id = ? AND deleted_at IS NOT NULL RETURNING name`).get(id, req.channel.id);
+  if (!removed) return res.status(404).json({error:'削除済みの商品が見つかりません。'});
+  // The initial deletion is already in history; refresh members without a duplicate notification.
+  req.app.locals.broadcast({type:'update',channelId:req.channel.id});
+  res.json({message:'商品を完全に削除しました。'});
 });
 
 module.exports = router;

@@ -108,7 +108,7 @@ const {DatabaseSync} = require('node:sqlite');
    await page.locator('#editDetails > summary').tap();
    await page.locator('#editNotes').fill('赤いもの');await page.locator('#saveItemButton').tap();await page.locator('#itemEditDialog').waitFor({state:'hidden'});
    row=page.locator('.shopping-item').filter({hasText:'トマト'});await row.locator('.delete-button').tap();
-   await page.locator('#deletedItemsDetails > summary').tap();await page.locator('.deleted-item-row').filter({hasText:'トマト'}).getByRole('button').tap();
+   await page.locator('#deletedItemsDetails > summary').tap();await page.locator('.deleted-item-row').filter({hasText:'トマト'}).locator('.deleted-restore-button').tap();
    await page.locator('.shopping-item').filter({hasText:'赤いもの'}).waitFor();
    await page.locator('#shortcut-left').tap();
    const managed=page.locator('.managed-list-row').filter({has:page.locator('.joined-channel-name',{hasText:'週末'})});

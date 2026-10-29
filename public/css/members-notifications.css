@@ -101,3 +101,19 @@
 #pushPermissionHelp { margin:12px 0; overflow-wrap:anywhere; }
 #pushPermissionHelp summary { cursor:pointer; padding-block:10px; }
 #pushPermissionHelp p { font-size:13px; line-height:1.6; }
+
+/* Current destinations stay highlighted, but cannot be activated again. */
+.bottom-nav .nav-item.active:disabled { opacity:1; cursor:default; }
+
+.deleted-items-hint { margin:4px 0 12px; font-size:12px; line-height:1.7; color:var(--muted); }
+.deleted-item-row { display:flex; flex-wrap:wrap; align-items:center; gap:10px; padding:14px 0; }
+.deleted-item-info { flex:1 1 140px; min-width:0; }
+.deleted-item-name { font-size:14px; font-weight:700; overflow-wrap:anywhere; }
+.deleted-item-expiry { display:block; margin-top:5px; font-size:11px; color:var(--muted); }
+.deleted-item-actions { display:flex; flex-wrap:wrap; gap:8px; }
+.deleted-item-actions button { display:inline-flex; align-items:center; justify-content:center; gap:6px; min-height:44px; padding:8px 12px; border:1px solid var(--border); border-radius:10px; font:inherit; font-size:12px; font-weight:700; cursor:pointer; }
+.deleted-restore-button { background:var(--primary-light); color:var(--primary-dark); }
+.deleted-permanent-button { background:transparent; color:#a93232; border-color:#e8baba; }
+.dark-mode .deleted-permanent-button { color:#ffb4ad; border-color:#795052; }
+.deleted-item-actions button:disabled { opacity:.45; cursor:default; }
+.deleted-item-actions button:focus-visible { outline:2px solid var(--primary); outline-offset:2px; }

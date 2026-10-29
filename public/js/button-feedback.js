@@ -12,7 +12,7 @@
     if (reduced.matches || !button.animate) return;
     animations.get(button)?.cancel();
     // Navigation geometry drives the sliding selection: never scale its hit area.
-    const frames = button.matches('.nav-item')
+    const frames = button.matches('.nav-item, [data-list-access], [data-theme-toggle]')
       ? [{ filter: 'brightness(.75)' }, { filter: 'brightness(1)' }]
       : [{ scale: '.94', filter: 'brightness(.84)' }, { scale: '1.02', filter: 'brightness(1)' }, { scale: '1', filter: 'brightness(1)' }];
     const animation = button.animate(frames, { duration: 260, easing: 'cubic-bezier(.22, 1, .36, 1)', id: 'button-tap-feedback' });

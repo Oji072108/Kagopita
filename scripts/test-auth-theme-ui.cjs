@@ -32,7 +32,7 @@ const assert=require('node:assert/strict');
   for(const lang of ['ja','en','ko','zh','es'])for(const width of [320,390,768]){
    await page.setViewportSize({width,height:844});await page.evaluate(lang=>applyLanguage(lang),lang);
    assert.equal(await page.locator('#nav-menu').isVisible(),false);
-   const r=await toggle.boundingBox();assert.ok(r.width>=44&&r.height>=44&&r.x>=0&&r.x+r.width<=width);
+   const r=await toggle.boundingBox();assert.ok(r.width>=44&&r.height>=44&&r.x>=0&&r.x+r.width<=width,`${lang} ${width}: ${JSON.stringify(r)}`);
    await toggle.tap();assert.equal(await toggle.getAttribute('aria-checked'),'false');
    await toggle.tap();assert.equal(await toggle.getAttribute('aria-checked'),'true');
    assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=document.documentElement.clientWidth));

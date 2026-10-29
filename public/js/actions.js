@@ -1,7 +1,7 @@
-/* Shared request deadlines and a top-layer interaction lock, without changing
-   controls' disabled states or blocking periodic background synchronization. */
+/* Immediate duplicate-action protection, with a loading screen only for slow work. */
 window.KagopitaActions = (() => {
   const TIMEOUT_MS = 30000;
+  const LOADING_DELAY_MS = 500;
   const timeoutKey = '処理に30秒以上かかったため、待機を中止しました。最新の状態を確認してから、もう一度お試しください。';
   let intent = null, active = null;
   const overlay = document.createElement('dialog');
@@ -38,27 +38,37 @@ window.KagopitaActions = (() => {
   }
   function start(trigger) {
     const group = { controller: new AbortController(), pending: 0, release: null, trigger,
-      previousBusy: trigger?.getAttribute('aria-busy') };
+      previousBusy: trigger?.getAttribute('aria-busy'),
+      previousDisabled: trigger?.getAttribute('aria-disabled') };
     active = group;
     document.getElementById('actionRequestError')?.remove();
     overlay.querySelector('strong').textContent = tr('処理中…');
     overlay.querySelector('p').textContent = tr('しばらくお待ちください。');
     trigger?.classList.add('is-loading');
     trigger?.setAttribute('aria-busy', 'true');
-    document.documentElement.classList.add('action-is-loading');
-    overlay.showModal();
-    overlay.focus({ preventScroll: true });
+    // Capture blocks activation immediately. Keep native disabled ownership with
+    // the feature so completion cannot re-enable pagination or permission locks.
+    trigger?.setAttribute('aria-disabled', 'true');
+    group.loadingTimer = setTimeout(() => {
+      if (active !== group || !group.pending) return;
+      document.documentElement.classList.add('action-is-loading');
+      overlay.showModal();
+      overlay.focus({ preventScroll: true });
+    }, LOADING_DELAY_MS);
     group.timer = setTimeout(() => group.controller.abort(timeoutError()), TIMEOUT_MS);
     return group;
   }
   function finish(group) {
     if (active !== group || group.pending) return;
     clearTimeout(group.timer);
+    clearTimeout(group.loadingTimer);
     active = null;
     overlay.close();
     document.documentElement.classList.remove('action-is-loading');
     group.trigger?.classList.remove('is-loading');
     if (group.trigger) {
+      if (group.previousDisabled === null) group.trigger.removeAttribute('aria-disabled');
+      else group.trigger.setAttribute('aria-disabled', group.previousDisabled);
       if (group.previousBusy === null) group.trigger.removeAttribute('aria-busy');
       else group.trigger.setAttribute('aria-busy', group.previousBusy);
     }
@@ -121,7 +131,7 @@ window.KagopitaActions = (() => {
   // A handler may open an ordinary dialog after its response; keep loading on top
   // until all related requests finish. Ignore our own dialog's mutations.
   new MutationObserver(records => {
-    if (active && records.some(record => record.target !== overlay && record.target.open)) {
+    if (active && overlay.open && records.some(record => record.target !== overlay && record.target.open)) {
       overlay.close(); overlay.showModal(); overlay.focus({ preventScroll: true });
     }
   }).observe(document.body, { subtree: true, attributes: true, attributeFilter: ['open'] });
