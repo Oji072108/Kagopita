@@ -167,10 +167,13 @@ async function api(url, options = {}) {
         $('noChannelsCreateButton').classList.add('hidden');
         showWelcomeMode('login');
       }
-      const error = new Error(data.error || (response.status === 401
+      const retryAfter = Math.max(1, Math.ceil(Number(data.retryAfter || response.headers.get('Retry-After')) || 1));
+      const rateMessage = translateFeature('操作が多すぎます。{seconds}秒後にもう一度お試しください。').replace('{seconds}', String(retryAfter));
+      const error = new Error((response.status === 429 && data.code === 'RATE_LIMITED' ? rateMessage : data.error) || (response.status === 401
         ? '利用状態を確認できません。画面を更新するか、招待リンクから参加し直してください。'
         : `通信に失敗しました（応答番号：${response.status}）。`));
       error.status = response.status;
+      if (response.status === 429) error.retryAfter = retryAfter;
       if (data.code === 'TERMS_ACCEPTANCE_REQUIRED') await window.KagopitaTerms?.refresh();
       throw error;
     }
@@ -239,13 +242,13 @@ function channelUrl(endpoint) {
 function updateChannelControls() {
   if (!currentUser) closeNavigationMenu();
   document.querySelector('.bottom-nav').classList.toggle('hidden', !currentUser);
-  $('nav-list').disabled = !currentChannelId;
+  $('nav-list').disabled = !currentChannelId || currentTab === 'list';
   $('nav-list').classList.toggle('hidden', !currentChannelId);
   document.querySelector('.bottom-nav-links').classList.toggle('without-list', !currentChannelId);
   $('nav-add').disabled = !currentChannelId || !canEditItems() || currentTab === 'add';
   $('nav-add').classList.toggle('hidden', !currentChannelId);
   document.querySelectorAll('[onclick="switchTab(\'add\')"]').forEach(button => { button.disabled = !canEditItems() || (button.id === 'nav-add' && currentTab === 'add'); });
-  $('deletedItemsDetails').classList.toggle('hidden', !canEditItems());
+  updateDeletedItemsVisibility();
   if (!canEditItems()) $('itemEditDialog').close();
   $('noChannels').classList.toggle('hidden', !currentUser || channels.length > 0 || ['channels', 'account'].includes(currentTab));
   $('channelViews').classList.toggle('hidden', !currentChannelId || ['channels', 'account'].includes(currentTab));
@@ -267,6 +270,7 @@ function updateChannelControls() {
 }
 
 function resetSignedOutState() {
+  clearFavoritesView();
   window.KagopitaLiveUpdates.stop();
   window.KagopitaNotifications?.reset();
   window.KagopitaPush?.setUser(null);
@@ -293,6 +297,7 @@ async function refreshChannels(preferredId = currentChannelId) {
   channels = data.channels;
   window.KagopitaNotifications?.refresh(currentUser.id);
   const selected = channels.find(channel => channel.id === preferredId && !channel.archivedAt) || channels.find(channel => !channel.archivedAt) || null;
+  if (currentChannelId !== (selected?.id || null)) clearFavoritesView();
   currentChannelId = selected?.id || null;
   currentMemberRole = selected?.role || null;
   updateChannelControls();
@@ -317,6 +322,7 @@ async function selectChannel(channelId) {
   const selected = channels.find(channel => channel.id === channelId);
   if (!selected || selected.archivedAt) return;
   ++channelSelectionVersion;
+  clearFavoritesView();
   currentChannelId = selected.id;
   currentMemberRole = selected.role;
   currentTab = 'list';
@@ -400,7 +406,9 @@ async function loadShoppingList() {
   try {
     const [data, { members }] = await Promise.all([api(channelUrl('/shopping-list')), api(channelUrl('/members'))]);
     if (requestId !== shoppingRequestId || channelId !== currentChannelId) return false;
-    const renderState = JSON.stringify([data, members, currentMemberRole]);
+    if (data.serverNow) deletedClockOffset = Date.parse(data.serverNow) - Date.now();
+    const {serverNow, ...renderData} = data;
+    const renderState = JSON.stringify([renderData, members, currentMemberRole]);
     if (filterChannelId === channelId && shoppingRenderState === renderState) return true;
     if (filterChannelId !== channelId) {
       $('itemSearch').value = ''; $('categoryFilter').value = ''; $('assignmentFilter').value = '';
@@ -542,6 +550,12 @@ function renderShoppingList(data) {
     renderFamilyFeed(data.familyFeed);
 }
 
+function clearFavoritesView() {
+  ++favoritesRequestId;
+  $('favoriteDetails').classList.add('hidden');
+  $('favoritesContainer').replaceChildren();
+}
+
 async function loadFavorites() {
   if (!currentChannelId) return;
   const channelId = currentChannelId;
@@ -551,13 +565,8 @@ async function loadFavorites() {
     const { favorites } = await api(`/api/channels/${encodeURIComponent(channelId)}/favorites`);
     if (requestId !== favoritesRequestId || channelId !== currentChannelId) return;
     container.replaceChildren();
-    if (!favorites.length) {
-      const empty = document.createElement('p');
-      empty.className = 'favorite-empty';
-      empty.textContent = 'お気に入りはまだありません。';
-      container.appendChild(empty);
-      return;
-    }
+    $('favoriteDetails').classList.toggle('hidden', favorites.length === 0);
+    if (!favorites.length) return;
 
     favorites.forEach(favorite => {
       const row = document.createElement('div');
@@ -617,6 +626,7 @@ async function loadFavorites() {
   } catch (error) {
     if (requestId !== favoritesRequestId || channelId !== currentChannelId) return;
     container.replaceChildren();
+    $('favoriteDetails').classList.remove('hidden');
     const message = document.createElement('p');
     message.className = 'favorite-empty';
     message.textContent = error.message;
@@ -1428,17 +1438,57 @@ function translateFeature(text) { return (uiTranslations[document.documentElemen
 function itemExtras(prefix) {
   return { notes: $(prefix + 'Notes').value.trim(), price: $(prefix + 'Price').value === '' ? null : Number($(prefix + 'Price').value), recurrence: $(prefix + 'Recurrence').value };
 }
+let deletedClockOffset = 0, deletedCountdownTimer;
+function updateDeletedItemsVisibility() {
+  const empty = !$('deletedItemsList').querySelector('.deleted-item-row');
+  $('deletedItemsDetails').classList.toggle('hidden', empty || !canEditItems());
+  if (empty) $('deletedItemsDetails').open = false;
+}
+function updateDeletedCountdowns() {
+  clearTimeout(deletedCountdownTimer);
+  const now = Date.now() + deletedClockOffset;
+  let next = Infinity;
+  document.querySelectorAll('.deleted-item-row').forEach(row => {
+    const expires = Number(row.dataset.expiresAt), remaining = expires - now;
+    if (remaining <= 0) { row.remove(); return; }
+    const minutes = Math.ceil(remaining / 60000);
+    const label = remaining < 60000 ? translateFeature('まもなく自動削除')
+      : translateFeature('自動削除まで {hours}時間{minutes}分')
+        .replace('{hours}', String(Math.floor(minutes / 60))).replace('{minutes}', String(minutes % 60));
+    row.querySelector('.deleted-item-expiry').textContent = label;
+    next = Math.min(next, remaining);
+  });
+  updateDeletedItemsVisibility();
+  if (Number.isFinite(next)) deletedCountdownTimer = setTimeout(updateDeletedCountdowns, Math.min(30000, Math.max(1, next)));
+}
+document.addEventListener('visibilitychange', () => { if (!document.hidden) updateDeletedCountdowns(); });
 function renderDeletedItems(items) {
   const container = $('deletedItemsList'); container.replaceChildren();
-  if (!items.length) { const empty=document.createElement('p'); empty.textContent=translateFeature('削除した商品はありません。'); container.append(empty); }
   for (const item of items) {
+    const expiresAt = Date.parse(item.expiresAt || '') || Date.parse(item.deletedAt || '') + 86400000;
+    if (!Number.isFinite(expiresAt) || expiresAt <= Date.now() + deletedClockOffset) continue;
     const row=document.createElement('div'); row.className='deleted-item-row';
-    const name=document.createElement('span'); const label=document.createElement('span'); shoppingName(label,item.name); const quantity=document.createElement('span'); shoppingQuantity(quantity,item.name,item.qty,' (',')'); name.append(label,quantity);
-    const restore=document.createElement('button'); restore.type='button'; restore.className='text-button'; restore.textContent=translateFeature('復元');
+    row.dataset.expiresAt = String(expiresAt);
+    const info=document.createElement('div'); info.className='deleted-item-info';
+    const name=document.createElement('div'); name.className='deleted-item-name';
+    const label=document.createElement('span'); shoppingName(label,item.name); const quantity=document.createElement('span'); shoppingQuantity(quantity,item.name,item.qty,' (',')'); name.append(label,quantity);
+    const expiry=document.createElement('time'); expiry.className='deleted-item-expiry'; expiry.dateTime=new Date(expiresAt).toISOString(); expiry.title=new Date(expiresAt).toLocaleString(document.documentElement.lang); expiry.dataset.i18nIgnore='true';
+    info.append(name,expiry);
+    const actions=document.createElement('div'); actions.className='deleted-item-actions';
+    const restore=document.createElement('button'); restore.type='button'; restore.className='deleted-restore-button';
+    const restoreIcon=document.createElement('i'); restoreIcon.className='ph-bold ph-arrow-counter-clockwise'; restoreIcon.setAttribute('aria-hidden','true');
+    const restoreLabel=document.createElement('span'); restoreLabel.textContent=translateFeature('復元');restore.append(restoreIcon,restoreLabel);
     restore.setAttribute('aria-label', `${item.name}: ${translateFeature('復元')}`);
-    restore.onclick=async()=>{restore.disabled=true; try {await api(channelUrl(`/items/${item.id}/restore`),{method:'POST'});await loadShoppingList();}catch(error){KagopitaDialogs.notice(error.message);restore.disabled=false;}};
-    row.append(name,restore);container.append(row);
+    const itemUrl=channelUrl(`/items/${item.id}`);
+    restore.onclick=async()=>{restore.disabled=true; try {await api(itemUrl+'/restore',{method:'POST'});await loadShoppingList();}catch(error){KagopitaDialogs.notice(error.message);restore.disabled=false;}};
+    const remove=document.createElement('button');remove.type='button';remove.className='deleted-permanent-button';
+    const removeIcon=document.createElement('i');removeIcon.className='ph-bold ph-trash';removeIcon.setAttribute('aria-hidden','true');
+    const removeLabel=document.createElement('span');removeLabel.textContent=translateFeature('完全に削除');remove.append(removeIcon,removeLabel);
+    remove.setAttribute('aria-label',`${item.name}: ${translateFeature('完全に削除')}`);
+    remove.onclick=()=>KagopitaDialogs.show({title:'商品を完全に削除しますか？',body:'「{name}」を完全に削除します。この操作は取り消せません。',values:{name:item.name},confirmLabel:'完全に削除',danger:true,onConfirm:async()=>{await api(itemUrl+'/permanent',{method:'DELETE'});await loadShoppingList();}});
+    actions.append(restore,remove);row.append(info,actions);container.append(row);
   }
+  updateDeletedCountdowns();
 }
 function renderJoinedChannels() {
   const section = $('joinedChannelsSection');
@@ -1497,7 +1547,7 @@ function renderNavigationShortcuts() {
     const button = $(index ? 'shortcut-right' : 'shortcut-left');
     const [label, icon] = shortcutChoices[key];
     button.innerHTML = `<i class="ph-bold ${icon}" aria-hidden="true"></i><span>${label}</span>`;
-    button.disabled = (['complete', 'share'].includes(key) && currentMemberRole !== 'owner') || (key === 'account' && !currentUser) || (['add', 'favorites'].includes(key) && !canEditItems());
+    button.disabled = key === currentTab || (['complete', 'share'].includes(key) && currentMemberRole !== 'owner') || (key === 'account' && !currentUser) || (['add', 'favorites'].includes(key) && !canEditItems());
     button.classList.toggle('hidden', key === 'members' && !currentChannelId);
     button.classList.toggle('active', key === currentTab);
     if (key === currentTab) button.setAttribute('aria-current', 'page');
@@ -1508,7 +1558,7 @@ function renderNavigationShortcuts() {
 }
 function runNavigationAction(key) {
   closeNavigationMenu();
-  if (!currentUser) return;
+  if (!currentUser || key === currentTab) return;
   if (key === 'channels') return openChannelsDialog();
   if (key === 'account') return $('nav-account').click();
   if (key === 'share') return $('shareButton').click();
@@ -1516,6 +1566,10 @@ function runNavigationAction(key) {
   return switchTab(key);
 }
 function syncNavigationMenu() {
+  // Channel refreshes and shortcut rebuilds must retain the current destination lock.
+  $('nav-list').disabled = !currentChannelId || currentTab === 'list';
+  $('nav-add').disabled = !currentChannelId || !canEditItems() || currentTab === 'add';
+  $('nav-account').disabled = !currentUser || currentTab === 'account';
   $('navigationDialog').querySelectorAll('[data-menu-tab]').forEach(button => {
     const selected = button.dataset.menuTab === currentTab;
     button.classList.toggle('hidden', !currentChannelId && ['list', 'members'].includes(button.dataset.menuTab));

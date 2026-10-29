@@ -55,7 +55,10 @@
     } finally {
       deferredPrompt = null; busy = false; update();
       if (restoreMenu && !standalone()) {
-        const restore = () => { if (!standalone() && !document.getElementById('nav-menu').classList.contains('hidden')) window.openNavigationMenu(); };
+        const restore = () => {
+          const menu = document.getElementById('navigationDialog');
+          if (!standalone() && !document.getElementById('nav-menu').classList.contains('hidden') && !menu.classList.contains('is-open')) window.openNavigationMenu();
+        };
         if (window.KagopitaActions.busy) document.addEventListener('kagopita:idle', restore, { once: true });
         else restore();
       }
@@ -65,8 +68,12 @@
   dialog.addEventListener('close', () => {
     // The trigger lives in an inert panel while the navigation is closed.
     if (returnToMenu && !standalone() && !document.getElementById('nav-menu').classList.contains('hidden')) {
-      window.openNavigationMenu();
-      button.focus({ preventScroll: true });
+      const menu = document.getElementById('navigationDialog');
+      if (!menu.classList.contains('is-open')) window.openNavigationMenu();
+      // Let the native dialog finish returning focus and the menu become visible.
+      requestAnimationFrame(() => {
+        if (!dialog.open && !menu.inert && menu.classList.contains('is-open')) button.focus({ preventScroll: true });
+      });
     } else {
       document.getElementById('nav-menu').focus({ preventScroll: true });
     }

@@ -12,7 +12,7 @@ async function viewer(language){
  await page.route('**/api/**',async route=>{
  const req=route.request(),path=new URL(req.url()).pathname;let data={};
  if(path==='/api/me')data={user:{id:language,username:language},channels:[{id:'shared',name:'Shared',role:'owner'}]};
- else if(path.endsWith('/shopping-list'))data={total:items.length,completed:0,familyFeed:[],categories:[...new Set(items.map(i=>i.category))].map(name=>({name,items:items.filter(i=>i.category===name)})),deletedItems:[{id:99,name:'牛乳',qty:'2本'}]};
+ else if(path.endsWith('/shopping-list'))data={total:items.length,completed:0,familyFeed:[],categories:[...new Set(items.map(i=>i.category))].map(name=>({name,items:items.filter(i=>i.category===name)})),deletedItems:[{id:99,name:'牛乳',qty:'2本',deletedAt:new Date().toISOString(),expiresAt:new Date(Date.now()+86400000).toISOString()}]};
  else if(path.endsWith('/members'))data={members:[]};
  else if(path.endsWith('/favorites'))data={favorites:[{id:5,name:'牛乳',qty:'2本',category:'乳製品・チーズ'}]};
  else if(req.method()==='POST' && path.endsWith('/items')){const body=req.postDataJSON();writes.push(body);const item={id:items.length+1,...body,addedBy:language};items.push(item);data={item}}

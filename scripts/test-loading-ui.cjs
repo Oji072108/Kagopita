@@ -54,6 +54,8 @@ const terms = require('../terms.json');
     assert.equal(await page.locator('.check-button').getAttribute('aria-busy'), null);
     assert.equal(await page.locator('.check-button.checked').count(), 1);
     holdReads = true;
+    await page.locator('#shortcut-right').click();
+    await page.locator('#view-members').waitFor();
     await page.locator('#nav-list').click();
     assert.equal(await page.evaluate(() => KagopitaActions.busy), false, 'List navigation has no loading lock');
     await page.locator('#shortcut-right').click();

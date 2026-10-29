@@ -36,6 +36,15 @@ app.locals.broadcast = broadcast;
 app.use(compression({ filter: (req, res) => req.path !== '/api/events' && compression.filter(req, res) }));
 app.use(express.json({ limit: '700kb' }));
 app.use(express.urlencoded({ extended: true }));
+const requestLimits = require('./request-limits').createRequestLimits(req => database.getSession(readSessionToken(req)));
+app.use('/api', (req, res, next) => {
+  if (!['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method)) return next();
+  requestLimits.writes(req, res, next);
+});
+app.patch('/api/channels/:channelId/items/:id/toggle', requestLimits.toggles);
+// Apply before token creation, database changes, or SMTP work, including public flows.
+app.post(['/api/resend-verification', '/api/password-reset/request'],
+requestLimits.emailActor, requestLimits.emailVolume, requestLimits.emailRecipient);
 app.use((req, res, next) => {
   res.set('Referrer-Policy', 'no-referrer');
   next();
@@ -462,7 +471,7 @@ app.post('/api/account', requireTermsAcceptance, (req, res) => {
   res.status(201).json({ user: { id: userId, username } });
 });
 
-app.post('/api/register', requireTermsAcceptance, async (req, res, next) => {
+app.post('/api/register', requireTermsAcceptance, requestLimits.emailActor, requestLimits.emailVolume, requestLimits.emailRecipient, async (req, res, next) => {
   const username = typeof req.body?.username === 'string' ? req.body.username.trim() : '';
   const email = normalizeEmail(req.body?.email);
   const password = req.body?.password;
@@ -689,7 +698,7 @@ app.use('/api', (req, res, next) => {
 
 app.use('/api/push', require('./push').routes(readSessionToken));
 
-app.post('/api/account/credentials', requireTermsAcceptance, async (req, res, next) => {
+app.post('/api/account/credentials', requireTermsAcceptance, requestLimits.emailActor, requestLimits.emailVolume, requestLimits.emailRecipient, async (req, res, next) => {
   const email = normalizeEmail(req.body?.email);
   const password = req.body?.password;
   if (!isValidEmail(email)) {
@@ -753,7 +762,7 @@ app.patch('/api/account/password', async (req, res) => {
   res.json({ message: 'パスワードを変更しました。' });
 });
 
-app.patch('/api/account/email', async (req, res) => {
+app.patch('/api/account/email', requestLimits.emailActor, requestLimits.emailVolume, requestLimits.emailRecipient, async (req, res) => {
   const email = normalizeEmail(req.body?.email);
   const password = req.body?.password;
   if (!isValidEmail(email)) return res.status(400).json({ error: '有効なメールアドレスを入力してください。' });
@@ -871,7 +880,7 @@ app.post('/api/channels/:channelId/invites', attachChannel, requireChannelOwner,
   res.json({ inviteCode: code });
 });
 
-app.post('/api/channels/:channelId/email-invites', attachChannel, requireChannelOwner, async (req, res) => {
+app.post('/api/channels/:channelId/email-invites', attachChannel, requireChannelOwner, requestLimits.emailActor, requestLimits.emailVolume, requestLimits.emailRecipient, async (req, res) => {
   const email = normalizeEmail(req.body?.email);
   if (!isValidEmail(email)) return res.status(400).json({ error: '有効なメールアドレスを入力してください。' });
   if (emailInviteRateLimited(req.user.id)) return res.status(429).json({ error: '招待メールの送信回数が上限に達しました。しばらくしてからお試しください。' });
@@ -1065,6 +1074,7 @@ app.use((error, req, res, next) => {
 });
 
 require('./push').start();
+require('./deleted-items').startDeletedItemCleanup(broadcast);
 
 app.listen(PORT, () => {
   const publicUrl = (process.env.PUBLIC_URL || `http://localhost:${PORT}`).replace(/\/+$/, '');

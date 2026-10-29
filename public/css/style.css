@@ -1697,9 +1697,17 @@ button {
 #channelsDialog .archived-lists > summary { min-height: 44px; padding: 12px 2px; font-size: 12px; color: var(--muted); cursor: pointer; }
 #channelsDialog .is-archived .joined-channel-button { cursor: default; }
 .list-access-card { padding: 14px; background: var(--surface); border: 1px solid var(--border); border-radius: 16px; }
-.list-access-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 4px; border-radius: 11px; background: var(--surface-strong); }
-.list-access-tabs button { display: flex; align-items: center; justify-content: center; gap: 6px; min-width: 0; min-height: 44px; padding: 8px 4px; border: 1px solid transparent; border-radius: 8px; color: var(--muted); background: transparent; font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; }
-.list-access-tabs button[aria-selected="true"] { border-color: var(--border); color: var(--primary-dark); background: var(--surface); box-shadow: 0 1px 3px #0001; }
+.list-access-tabs { position:relative; isolation:isolate; display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 4px; border:1px solid var(--border); border-radius: 14px; background: var(--surface-strong); }
+.list-access-tabs::before { content:""; position:absolute; z-index:0; left:4px; top:4px; width:calc((100% - 12px) / 2); height:calc(100% - 8px); border-radius:9px; background:#fff; box-shadow:0 1px 5px rgba(34,75,42,.12); transform:translateX(0); transition:transform .32s cubic-bezier(.22,.8,.24,1); pointer-events:none; }
+.list-access-tabs:has([data-list-access="join"][aria-selected="true"])::before { transform:translateX(calc(100% + 4px)); }
+.list-access-tabs button { position:relative; z-index:1; display: flex; align-items: center; justify-content: center; gap: 6px; min-width: 0; min-height: 44px; padding: 8px 4px; border: 0; border-radius: 9px; color: var(--muted); background: transparent; font: inherit; font-size: 13px; font-weight: 900; cursor: pointer; transition:color .2s ease; }
+.list-access-tabs button[aria-selected="true"] { color: var(--primary-dark); }
+.dark-mode .list-access-tabs { background:#263229; border-color:#415044; }
+.dark-mode .list-access-tabs::before { background:#324936; box-shadow:0 2px 8px rgba(0,0,0,.28); }
+.dark-mode .list-access-tabs button { color:#a9b8ad; }
+.dark-mode .list-access-tabs button[aria-selected="true"] { color:#e8f1ea; }
+.list-access-tabs button:focus-visible { outline:2px solid var(--primary); outline-offset:1px; }
+@media (prefers-reduced-motion:reduce) { .list-access-tabs::before, .list-access-tabs button { transition:none; } }
 #channelsDialog .list-access-card .form { padding: 18px 0 0; margin: 0; border: 0; gap: 10px; }
 #channelsDialog .list-access-card input { min-width: 0; font-size: 16px; }
 #channelsDialog .list-access-card .btn { margin: 2px 0 0; min-height: 46px; font-size: 14px; }
