@@ -61,7 +61,7 @@
 </head>
 <body>
   <header class="header">
-    <button id="nav-menu" class="header-menu hidden" type="button" aria-label="メニューを開く" aria-expanded="false" aria-controls="navigationDialog" onclick="openNavigationMenu()"><span class="hamburger-icon" aria-hidden="true"><span></span><span></span><span></span></span></button>
+    <button id="nav-menu" class="header-menu hidden" type="button" aria-label="メニューを開く" aria-expanded="false" aria-controls="navigationDialog" data-csp-action="open-navigation"><span class="hamburger-icon" aria-hidden="true"><span></span><span></span><span></span></span></button>
     <a class="brand" href="/">
       <span class="brand-icon"><img class="logo-light" src="/logo-light.svg?v=20261028-terms4" alt="" width="44" height="44"><img class="logo-dark" src="/logo-dark.svg?v=20261028-terms4" alt="" width="44" height="44"></span>
       <span>
@@ -227,10 +227,10 @@
       </details>
 
       <div class="actions">
-        <button class="btn btn-primary" onclick="switchTab('add')">
+        <button class="btn btn-primary" data-csp-action="switch-add">
           <i class="ph-bold ph-plus-circle"></i> 商品を追加する
         </button>
-        <button id="completeShoppingButton" class="btn btn-accent hidden" onclick="switchTab('complete')">
+        <button id="completeShoppingButton" class="btn btn-accent hidden" data-csp-action="switch-complete">
           <i class="ph-bold ph-check-circle"></i> 買い物を完了する
         </button>
       </div>
@@ -341,7 +341,7 @@
         <span class="eyebrow">買い物完了</span>
         <h2>買い忘れなし！</h2>
         <p>この共有リストと履歴を削除し、メンバー全員をこのリストから退出させます。他のリストやアカウントには影響しません。</p>
-        <button class="btn btn-primary" onclick="handleResetList()">
+        <button class="btn btn-primary" data-csp-action="reset-list">
           <i class="ph-bold ph-check-circle"></i> このリストを完了して削除
         </button>
 
@@ -597,13 +597,13 @@
       <p id="currentListName" class="share-instructions"></p>
       <div class="menu-actions">
         <p class="navigation-group-label">お買い物</p>
-        <button class="btn btn-secondary" data-menu-tab="list" onclick="runNavigationAction('list')"><i class="ph-bold ph-list-checks" aria-hidden="true"></i><span>買うものリスト</span></button>
-        <button class="btn btn-secondary" data-menu-tab="add" onclick="runNavigationAction('add')"><i class="ph-bold ph-plus-circle" aria-hidden="true"></i><span>商品を追加</span></button>
+        <button class="btn btn-secondary" data-menu-tab="list" data-csp-action="menu-list"><i class="ph-bold ph-list-checks" aria-hidden="true"></i><span>買うものリスト</span></button>
+        <button class="btn btn-secondary" data-menu-tab="add" data-csp-action="menu-add"><i class="ph-bold ph-plus-circle" aria-hidden="true"></i><span>商品を追加</span></button>
         <p class="navigation-group-label">リスト・設定</p>
         <button id="showChannelsButton" data-menu-tab="channels" class="btn btn-secondary" type="button"><i class="ph-bold ph-stack" aria-hidden="true"></i><span>リストを切り替える</span></button>
-        <button id="menu-share" class="btn btn-secondary" onclick="runNavigationAction('share')"><i class="ph-bold ph-share-network" aria-hidden="true"></i><span>このリストを共有</span></button>
-        <button id="nav-members" class="btn btn-secondary" data-menu-tab="members" onclick="runNavigationAction('members')"><i class="ph-bold ph-users" aria-hidden="true"></i><span>メンバー</span></button>
-        <button class="btn btn-secondary" type="button" data-menu-tab="account" onclick="runNavigationAction('account')"><i class="ph-bold ph-user-circle" aria-hidden="true"></i><span>アカウント</span></button>
+        <button id="menu-share" class="btn btn-secondary" data-csp-action="menu-share"><i class="ph-bold ph-share-network" aria-hidden="true"></i><span>このリストを共有</span></button>
+        <button id="nav-members" class="btn btn-secondary" data-menu-tab="members" data-csp-action="menu-members"><i class="ph-bold ph-users" aria-hidden="true"></i><span>メンバー</span></button>
+        <button class="btn btn-secondary" type="button" data-menu-tab="account" data-csp-action="menu-account"><i class="ph-bold ph-user-circle" aria-hidden="true"></i><span>アカウント</span></button>
         <button id="pushMenuButton" class="btn btn-secondary" type="button" hidden><i class="ph-bold ph-bell" aria-hidden="true"></i><span>プッシュ通知</span></button>
         <a id="siteAdminLink" class="btn btn-secondary hidden" href="/admin"><i class="ph-bold ph-shield-check" aria-hidden="true"></i><span>管理ダッシュボード</span></a>
         <div id="pwaInstall" class="pwa-install hidden">
@@ -611,15 +611,15 @@
           <p id="pwaInstallStatus" class="share-message" role="status" aria-live="polite"></p>
         </div>
         <div class="navigation-divider" aria-hidden="true"></div>
-        <button id="nav-complete" class="btn btn-secondary" data-menu-tab="complete" onclick="runNavigationAction('complete')"><i class="ph-bold ph-check-circle" aria-hidden="true"></i><span>買い物を完了</span></button>
+        <button id="nav-complete" class="btn btn-secondary" data-menu-tab="complete" data-csp-action="menu-complete"><i class="ph-bold ph-check-circle" aria-hidden="true"></i><span>買い物を完了</span></button>
       </div>
     </div>
   </div>
   <nav class="bottom-nav hidden" aria-label="メインナビゲーション">
     <div class="bottom-nav-links">
-      <button id="nav-list" class="nav-item active" onclick="switchTab('list')"><i aria-hidden="true" class="ph-fill ph-list-checks"></i><span>リスト</span></button>
+      <button id="nav-list" class="nav-item active" data-csp-action="switch-list"><i aria-hidden="true" class="ph-fill ph-list-checks"></i><span>リスト</span></button>
       <button id="shortcut-left" class="nav-item" type="button"></button>
-      <button id="nav-add" class="nav-item" onclick="switchTab('add')"><i aria-hidden="true" class="ph-bold ph-plus-circle"></i><span>追加</span></button>
+      <button id="nav-add" class="nav-item" data-csp-action="switch-add"><i aria-hidden="true" class="ph-bold ph-plus-circle"></i><span>追加</span></button>
       <button id="shortcut-right" class="nav-item" type="button"></button>
       <button id="nav-account" class="nav-item" type="button"><i aria-hidden="true" class="ph-bold ph-user-circle"></i><span>アカウント</span></button>
     </div>
@@ -655,5 +655,6 @@
   <script src="/js/button-feedback.js?v=20261028-members3"></script>
   <script src="/js/nav-indicator.js?v=20261028-sliding-nav1"></script>
   <script src="/js/dark-mode.js?v=20261028-terms4"></script>
+  <script src="/js/csp-actions.js"></script>
 </body>
 </html>
