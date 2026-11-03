@@ -104,7 +104,7 @@ for (const directory of ['css', 'js']) {
     assetVersions.set(`/${directory}/${name}`, crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex').slice(0, 16));
   }
 }
-const staticOptions = { setHeaders(res) {
+const staticOptions = { dotfiles: 'deny', setHeaders(res) {
   const url = new URL(res.req.originalUrl, 'http://localhost');
   const version = assetVersions.get(url.pathname);
   if (version && url.searchParams.get('v') === version) res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
@@ -130,6 +130,11 @@ app.get('/offline.html', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'offline.html'));
 });
 app.get('/admin', (req,res)=>{
+  const user=database.getSession(readSessionToken(req));
+  if(!adminMonitor.isOwner(user)) {
+    return res.status(404).set({'Cache-Control':'no-store','X-Robots-Tag':'noindex, nofollow',
+      'Content-Security-Policy':ERROR_CSP}).sendFile(path.join(__dirname,'private','not-found.html'));
+  }
   res.set({'Cache-Control':'no-store','X-Robots-Tag':'noindex, nofollow','X-Frame-Options':'DENY',
     'Content-Security-Policy':ADMIN_CSP});
   res.sendFile(path.join(__dirname,'private','admin.html'));
@@ -137,7 +142,7 @@ app.get('/admin', (req,res)=>{
 app.get('/healthz',(req,res)=>{
   const health=adminMonitor.health();res.set('Cache-Control','no-store').status(health.status==='ok'?200:503).json({status:health.status});
 });
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static(path.join(__dirname, 'public'), { dotfiles: 'deny' }));
 
 app.get('/api/terms', (req, res) => {
   const terms = readTerms();
@@ -444,12 +449,16 @@ function getChannelRole(channelId, userId) {
 }
 
 function attachChannel(req, res, next) {
-  const channel = db.prepare('SELECT id, name, archived_at FROM channels WHERE id = ?')
-    .get(req.params.channelId);
-  const role = channel && getChannelRole(channel.id, req.user.id);
-  if (!channel || !role) {
+  const membership = db.prepare(`
+    SELECT channels.id, channels.name, channels.archived_at, channel_members.role
+    FROM channels
+    JOIN channel_members ON channel_members.channel_id = channels.id
+    WHERE channels.id = ? AND channel_members.user_id = ?
+  `).get(req.params.channelId, req.user.id);
+  if (!membership) {
     return res.status(403).json({ error: 'You are not a member of this list.' });
   }
+  const { role, ...channel } = membership;
   req.channel = channel;
   req.channelRole = role;
   next();
