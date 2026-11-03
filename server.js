@@ -14,6 +14,9 @@ const scrypt = promisify(crypto.scrypt);
 const { readTerms, requireTermsAcceptance } = require('./terms');
 
 const app = express();
+app.disable('x-powered-by');
+app.set('trust proxy','loopback');
+app.set('query parser', 'simple');
 const PORT = process.env.PORT || 3000;
 const cookieName = 'kagopita_session';
 const inviteAttempts = new Map();
@@ -27,33 +30,72 @@ const mailTransporter = process.env.SMTP_USER && process.env.SMTP_PASS
       host: process.env.SMTP_HOST || 'smtp.gmail.com',
       port: smtpPort,
       secure: process.env.SMTP_SECURE ? process.env.SMTP_SECURE === 'true' : smtpPort === 465,
+      connectionTimeout:10000, greetingTimeout:10000, socketTimeout:15000,
       auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS.replace(/\s/g, '') }
     })
   : null;
+const adminMonitor = require('./admin').createAdminMonitor({
+  db, dataDirectory:path.resolve(process.env.KAGOPITA_DATA_DIR || path.join(__dirname,'data')),
+  ownerId:process.env.KAGOPITA_ADMIN_USER_ID, ownerEmail:process.env.KAGOPITA_ADMIN_EMAIL,
+  mailer:mailTransporter, verifyPassword, sessionToken:readSessionToken,
+  pushAlert:(userId,incident)=>require('./push').enqueueAdminAlert(userId,incident)
+});
 app.locals.broadcast = broadcast;
 
-// Leave event streams uncompressed so updates are never held in a gzip buffer.
-app.use(compression({ filter: (req, res) => req.path !== '/api/events' && compression.filter(req, res) }));
-app.use(express.json({ limit: '700kb' }));
-app.use(express.urlencoded({ extended: true }));
+app.use(compression({ filter: (req, res) => !['/api/events','/api/admin/events'].includes(req.path) && compression.filter(req, res) }));
+app.use(adminMonitor.observe);
+app.use('/api',require('./security').sameOriginApi);
+app.use(express.json({
+  limit: '700kb',
+  reviver: (key, value) => (key === '__proto__' || key === 'constructor' || key === 'prototype' ? undefined : value)
+}));
+app.use(express.urlencoded({ extended: false, limit: '100kb' }));
 const requestLimits = require('./request-limits').createRequestLimits(req => database.getSession(readSessionToken(req)));
 app.use('/api', (req, res, next) => {
   if (!['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method)) return next();
   requestLimits.writes(req, res, next);
 });
 app.patch('/api/channels/:channelId/items/:id/toggle', requestLimits.toggles);
-// Apply before token creation, database changes, or SMTP work, including public flows.
 app.post(['/api/resend-verification', '/api/password-reset/request'],
 requestLimits.emailActor, requestLimits.emailVolume, requestLimits.emailRecipient);
+
+const APP_CSP = [
+  "default-src 'self'",
+  "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://pagead2.googlesyndication.com https://*.googlesyndication.com https://*.google.com https://*.doubleclick.net",
+  "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net",
+  "font-src 'self' https://fonts.gstatic.com https://cdn.jsdelivr.net data:",
+  "img-src 'self' data: blob: https://pagead2.googlesyndication.com https://*.googlesyndication.com https://*.google.com https://*.doubleclick.net",
+  "connect-src 'self' https://pagead2.googlesyndication.com https://*.googlesyndication.com https://*.google.com https://*.doubleclick.net",
+  "frame-src 'self' https://googleads.g.doubleclick.net https://*.googlesyndication.com",
+  "frame-ancestors 'none'",
+  "base-uri 'self'",
+  "form-action 'self'",
+  "object-src 'none'"
+].join('; ');
+
+const API_CSP = "default-src 'none'; frame-ancestors 'none'";
+const ADMIN_CSP = "default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'; object-src 'none'";
+const ERROR_CSP = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; frame-ancestors 'none'; base-uri 'none'; form-action 'self'; object-src 'none'";
+
 app.use((req, res, next) => {
   res.set('Referrer-Policy', 'no-referrer');
+  res.set({
+    'X-Content-Type-Options': 'nosniff',
+    'X-Frame-Options': 'DENY',
+    'X-XSS-Protection': '0',
+    'Cross-Origin-Opener-Policy': 'same-origin',
+    'Cross-Origin-Resource-Policy': 'same-origin',
+    'Permissions-Policy': 'camera=(), microphone=(), geolocation=(), payment=()'
+  });
+  if (req.secure || req.get('x-forwarded-proto') === 'https') {
+    res.set('Strict-Transport-Security', 'max-age=15552000; includeSubDomains');
+  }
   next();
 });
 
 app.get('/vendor/qrcode.min.js', (req, res) => {
   res.sendFile(path.join(__dirname, 'node_modules', 'qrcodejs', 'qrcode.min.js'));
 });
-// Fingerprint public code at startup. Changed files get new URLs automatically.
 const assetVersions = new Map();
 for (const directory of ['css', 'js']) {
   for (const name of fs.readdirSync(path.join(__dirname, 'public', directory))) {
@@ -73,14 +115,27 @@ app.get('/sw.js', (req, res) => {
   res.set('Cache-Control', 'no-cache');
   res.sendFile(path.join(__dirname, 'public', 'sw.js'));
 });
-// Render absolute sharing URLs for crawlers without requiring JavaScript.
 app.get(['/', '/index.html'], (req, res) => {
   const publicUrl = (process.env.PUBLIC_URL || `http://localhost:${PORT}`).replace(/\/+$/, '');
   const safeUrl = publicUrl.replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
   const html = fs.readFileSync(path.join(__dirname, 'public', 'index.html'), 'utf8');
   res.set('Cache-Control', 'no-cache');
+  res.set('Content-Security-Policy', APP_CSP);
   res.type('html').send(html.replaceAll('__PUBLIC_URL__', safeUrl).replace(/((?:src|href)=")(\/(?:js|css)\/[^"?]+)(?:\?[^"\s]*)?"/g,
     (match, prefix, asset) => assetVersions.has(asset) ? `${prefix}${asset}?v=${assetVersions.get(asset)}"` : match));
+});
+app.get('/offline.html', (req, res) => {
+  res.set('Cache-Control', 'no-cache');
+  res.set('Content-Security-Policy', ERROR_CSP);
+  res.sendFile(path.join(__dirname, 'public', 'offline.html'));
+});
+app.get('/admin', (req,res)=>{
+  res.set({'Cache-Control':'no-store','X-Robots-Tag':'noindex, nofollow','X-Frame-Options':'DENY',
+    'Content-Security-Policy':ADMIN_CSP});
+  res.sendFile(path.join(__dirname,'private','admin.html'));
+});
+app.get('/healthz',(req,res)=>{
+  const health=adminMonitor.health();res.set('Cache-Control','no-store').status(health.status==='ok'?200:503).json({status:health.status});
 });
 app.use(express.static(path.join(__dirname, 'public')));
 
@@ -97,7 +152,8 @@ function readSessionToken(req) {
     .split(';')
     .map(value => value.trim())
     .find(value => value.startsWith(`${cookieName}=`));
-  return cookie?.slice(cookieName.length + 1);
+  const token = cookie?.slice(cookieName.length + 1);
+  return typeof token === 'string' && /^[a-f0-9]{64}$/i.test(token) ? token : undefined;
 }
 
 function recordInvalidInviteAttempt(req) {
@@ -155,7 +211,15 @@ function normalizeEmail(value) {
 }
 
 function isValidEmail(email) {
-  return email.length <= 254 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  return typeof email === 'string' && email.length <= 254 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) && !/[\x00-\x1f\x7f]/.test(email);
+}
+
+function isValidUsername(username) {
+  return typeof username === 'string' && username.trim().length >= 1 && username.trim().length <= 30 && !/[\x00-\x1f\x7f]/.test(username);
+}
+
+function isValidChannelName(name) {
+  return typeof name === 'string' && name.trim().length >= 1 && name.trim().length <= 60 && !/[\x00-\x1f\x7f]/.test(name);
 }
 
 function isValidPassword(password) {
@@ -211,16 +275,19 @@ async function sendListInviteEmail(email, code, channelName, inviterName) {
     error.code = 'SMTP_NOT_CONFIGURED';
     throw error;
   }
+  const cleanEmail = String(email || '').replace(/[\r\n\x00-\x1f\x7f]/g, '').trim();
+  const cleanChannel = String(channelName || '').replace(/[\r\n\x00-\x1f\x7f]/g, ' ').trim();
+  const cleanInviter = String(inviterName || '').replace(/[\r\n\x00-\x1f\x7f]/g, ' ').trim();
   const publicUrl = (process.env.PUBLIC_URL || `http://localhost:${PORT}`).replace(/\/+$/, '');
   const inviteUrl = `${publicUrl}/#invite=${encodeURIComponent(code)}`;
   const safeUrl = escapeHtml(inviteUrl);
-  const safeChannel = escapeHtml(channelName);
-  const safeInviter = escapeHtml(inviterName);
+  const safeChannel = escapeHtml(cleanChannel);
+  const safeInviter = escapeHtml(cleanInviter);
   await mailTransporter.sendMail({
     from: process.env.SMTP_FROM || process.env.SMTP_USER,
-    to: email,
-    subject: `【カゴピタ】「${channelName}」への招待`,
-    text: `${safeInviter}さんから「${channelName}」の共有リストに招待されました。\n\n次のリンクから参加できます。招待リンクは1回のみ使用できます。\n${inviteUrl}\n\nこの招待に心当たりがない場合は、このメールを破棄してください。\n\nカゴピタ サポート`,
+    to: cleanEmail,
+    subject: `【カゴピタ】「${cleanChannel}」への招待`,
+    text: `${cleanInviter}さんから「${cleanChannel}」の共有リストに招待されました。\n\n次のリンクから参加できます。招待リンクは1回のみ使用できます。\n${inviteUrl}\n\nこの招待に心当たりがない場合は、このメールを破棄してください。\n\nカゴピタ サポート`,
     html: `<!doctype html><html lang="ja"><body style="margin:0;padding:32px 16px;background:#f4f7f5;color:#26332a;font-family:Arial,'Hiragino Kaku Gothic ProN',Meiryo,sans-serif"><table role="presentation" style="width:100%;max-width:560px;margin:0 auto;border-collapse:collapse;background:#fff;border:1px solid #e5ebe6;border-radius:12px"><tr><td style="padding:32px"><p style="margin:0 0 8px;color:#388e3c;font-size:13px;font-weight:700">KAGOPITA</p><h1 style="margin:0 0 18px;font-size:22px">共有リストへのご招待</h1><p style="margin:0 0 20px;font-size:15px;line-height:1.8">${safeInviter}さんから「${safeChannel}」の共有リストに招待されました。</p><p style="margin:0 0 24px;font-size:13px;line-height:1.8;color:#657269">以下のボタンから参加できます。招待リンクは1回のみ使用できます。</p><p style="margin:0 0 24px;text-align:center"><a href="${safeUrl}" style="display:inline-block;padding:14px 24px;border-radius:8px;background:#388e3c;color:#fff;text-decoration:none;font-weight:700">共有リストに参加する</a></p><p style="margin:0;font-size:12px;line-height:1.8;color:#657269">この招待にお心当たりがない場合は、このメールを破棄してください。</p><p style="margin:24px 0 0;padding-top:16px;border-top:1px solid #e5ebe6;font-size:12px;color:#839087">カゴピタ サポート</p></td></tr></table></body></html>`
   });
 }
@@ -277,12 +344,14 @@ async function sendVerificationEmail(email, code) {
     error.code = 'SMTP_NOT_CONFIGURED';
     throw error;
   }
+  const cleanEmail = String(email || '').replace(/[\r\n\x00-\x1f\x7f]/g, '').trim();
+  const cleanCode = String(code || '').replace(/\D/g, '').slice(0, 6);
   await mailTransporter.sendMail({
     from: process.env.SMTP_FROM || process.env.SMTP_USER,
-    to: email,
+    to: cleanEmail,
     subject: '【カゴピタ】メールアドレス確認コードのお知らせ',
-    text: `カゴピタをご利用いただき、ありがとうございます。\n\nメールアドレスの確認コードをお知らせいたします。\n\n確認コード：${code}\n\n確認コードの有効期限は発行から24時間です。アプリの確認画面に入力して、登録を完了してください。\n\nこの操作にお心当たりがない場合は、このメールを破棄してください。確認コードを他の方に共有しないでください。\n\nカゴピタ サポート`,
-    html: `<!doctype html><html lang="ja"><body style="margin:0;padding:32px 16px;background:#f4f7f5;color:#26332a;font-family:Arial,'Hiragino Kaku Gothic ProN',Meiryo,sans-serif"><table role="presentation" style="width:100%;max-width:560px;margin:0 auto;border-collapse:collapse;background:#fff;border:1px solid #e5ebe6;border-radius:12px"><tr><td style="padding:32px"><p style="margin:0 0 8px;color:#388e3c;font-size:13px;font-weight:700">KAGOPITA</p><h1 style="margin:0 0 18px;font-size:22px">メールアドレスの確認</h1><p style="margin:0 0 20px;font-size:15px;line-height:1.8">カゴピタをご利用いただき、ありがとうございます。以下の確認コードをアプリに入力して、メールアドレスの登録を完了してください。</p><div style="margin:0 0 20px;padding:18px;background:#f4f7f5;border:1px solid #e5ebe6;border-radius:8px;text-align:center"><span style="font-size:30px;font-weight:700;letter-spacing:6px;color:#2e7d32">${code}</span></div><p style="margin:0 0 20px;font-size:13px;line-height:1.8;color:#657269">確認コードの有効期限は発行から24時間です。期限が切れた場合は、アプリから新しいコードを再送してください。</p><p style="margin:0;font-size:12px;line-height:1.8;color:#657269">この操作にお心当たりがない場合は、このメールを破棄してください。確認コードを他の方に共有しないでください。</p><p style="margin:24px 0 0;padding-top:16px;border-top:1px solid #e5ebe6;font-size:12px;color:#839087">カゴピタ サポート</p></td></tr></table></body></html>`
+    text: `カゴピタをご利用いただき、ありがとうございます。\n\nメールアドレスの確認コードをお知らせいたします。\n\n確認コード：${cleanCode}\n\n確認コードの有効期限は発行から24時間です。アプリの確認画面に入力して、登録を完了してください。\n\nこの操作にお心当たりがない場合は、このメールを破棄してください。確認コードを他の方に共有しないでください。\n\nカゴピタ サポート`,
+    html: `<!doctype html><html lang="ja"><body style="margin:0;padding:32px 16px;background:#f4f7f5;color:#26332a;font-family:Arial,'Hiragino Kaku Gothic ProN',Meiryo,sans-serif"><table role="presentation" style="width:100%;max-width:560px;margin:0 auto;border-collapse:collapse;background:#fff;border:1px solid #e5ebe6;border-radius:12px"><tr><td style="padding:32px"><p style="margin:0 0 8px;color:#388e3c;font-size:13px;font-weight:700">KAGOPITA</p><h1 style="margin:0 0 18px;font-size:22px">メールアドレスの確認</h1><p style="margin:0 0 20px;font-size:15px;line-height:1.8">カゴピタをご利用いただき、ありがとうございます。以下の確認コードをアプリに入力して、メールアドレスの登録を完了してください。</p><div style="margin:0 0 20px;padding:18px;background:#f4f7f5;border:1px solid #e5ebe6;border-radius:8px;text-align:center"><span style="font-size:30px;font-weight:700;letter-spacing:6px;color:#2e7d32">${cleanCode}</span></div><p style="margin:0 0 20px;font-size:13px;line-height:1.8;color:#657269">確認コードの有効期限は発行から24時間です。期限が切れた場合は、アプリから新しいコードを再送してください。</p><p style="margin:0;font-size:12px;line-height:1.8;color:#657269">この操作にお心当たりがない場合は、このメールを破棄してください。確認コードを他の方に共有しないでください。</p><p style="margin:24px 0 0;padding-top:16px;border-top:1px solid #e5ebe6;font-size:12px;color:#839087">カゴピタ サポート</p></td></tr></table></body></html>`
   });
 }
 
@@ -298,7 +367,7 @@ function createVerificationToken(userId) {
 
 function createPasswordResetToken(userId) {
   const token = crypto.randomBytes(32).toString('hex');
-  const expiresAt = Date.now() + 60 * 60 * 1000;
+  const expiresAt = Date.now() + 30 * 60 * 1000;
   db.prepare('DELETE FROM password_reset_tokens WHERE user_id = ?').run(userId);
   db.prepare(`INSERT INTO password_reset_tokens (token_hash, user_id, expires_at) VALUES (?, ?, ?)`)
     .run(database.sessionHash(token), userId, expiresAt);
@@ -311,24 +380,18 @@ async function sendPasswordResetEmail(email, token) {
     error.code = 'SMTP_NOT_CONFIGURED';
     throw error;
   }
+  const cleanEmail = String(email || '').replace(/[\r\n\x00-\x1f\x7f]/g, '').trim();
   const url = `${process.env.PUBLIC_URL || `http://localhost:${PORT}`}/?reset=${encodeURIComponent(token)}`;
+  const safeUrl = escapeHtml(url);
   const subject = 'カゴピタ｜パスワード再設定のご案内';
-  const text = `カゴピタをご利用いただきありがとうございます。\n\nパスワードを再設定するには、以下のリンクを開いてください。\n${url}\n\nこのリンクの有効期限は1時間です。心当たりがない場合は、このメールを削除してください。\n\nカゴピタ運営チーム`;
-  const html = `<!doctype html><html lang="ja"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head><body style="margin:0;background:#f3f7f4;color:#26352b;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Noto Sans JP',Arial,sans-serif;line-height:1.7"><div style="padding:32px 16px"><div style="max-width:560px;margin:0 auto;background:#fff;border:1px solid #dfe9e1;border-radius:16px;overflow:hidden;box-shadow:0 8px 24px rgba(36,72,43,.08)"><div style="padding:24px 28px;background:#4d8f3d;color:#fff"><div style="font-size:24px;font-weight:700;letter-spacing:.04em">カゴピタ</div><div style="font-size:12px;opacity:.9">みんなで使えるお買い物リスト</div></div><div style="padding:32px 28px"><h1 style="margin:0 0 20px;font-size:22px;line-height:1.4;color:#1f3024">パスワード再設定のご案内</h1><p style="margin:0 0 16px">カゴピタをご利用いただきありがとうございます。</p><p style="margin:0 0 24px">パスワードを再設定するには、下のボタンを押してください。</p><p style="margin:0 0 28px;text-align:center"><a href="${url}" style="display:inline-block;padding:14px 28px;border-radius:10px;background:#4caf50;color:#fff;text-decoration:none;font-weight:700">パスワードを再設定する</a></p><p style="margin:0;padding:16px;border-radius:10px;background:#f3f7f4;color:#5d6c62;font-size:13px">このリンクの有効期限は1時間です。期限を過ぎた場合は、もう一度再設定メールをリクエストしてください。</p><p style="margin:24px 0 0;color:#68766d;font-size:13px">このメールに心当たりがない場合は、操作せずに削除してください。</p></div><div style="padding:18px 28px;border-top:1px solid #edf1ee;color:#7b887f;font-size:12px">カゴピタ運営チーム</div></div></div></body></html>`;
-  const professionalHtml = `<!doctype html><html lang="ja"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head><body style="margin:0;background:#171918;color:#e7f0e9;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Noto Sans JP',Arial,sans-serif;line-height:1.8"><div style="padding:28px 14px;background:#171918"><div style="max-width:620px;margin:0 auto;background:#202321;border:1px solid #303832;border-radius:4px;overflow:hidden"><div style="padding:34px 34px 22px"><div style="font-size:22px;font-weight:700;letter-spacing:.08em;color:#62b85b">KAGOPITA</div><h1 style="margin:22px 0 18px;font-size:30px;line-height:1.4;color:#e7f0e9">パスワードの再設定</h1><p style="margin:0 0 26px;font-size:17px;color:#d7e3d9">カゴピタをご利用いただき、ありがとうございます。<br>以下のボタンから新しいパスワードを設定してください。</p><p style="margin:0 0 28px;text-align:center"><a href="${url}" style="display:block;padding:16px 20px;border-radius:10px;background:#69bd61;color:#102214;text-decoration:none;font-size:17px;font-weight:700">パスワードを再設定する</a></p><p style="margin:0 0 22px;font-size:14px;color:#aebdb1">このリンクの有効期限は発行から1時間です。期限が切れた場合は、アプリからもう一度再設定メールを送信してください。</p><p style="margin:0;font-size:14px;color:#aebdb1">この操作に心当たりがない場合は、このメールを破棄してください。リンクを他の人に共有しないでください。</p><div style="margin-top:30px;padding-top:20px;border-top:1px solid #394139;font-size:14px;color:#9cac9f">カゴピタ サポート</div></div></div></div></body></html>`;
+  const text = `カゴピタをご利用いただきありがとうございます。\n\nパスワードを再設定するには、以下のリンクを開いてください。\n${url}\n\nこのリンクの有効期限は30分です。心当たりがない場合は、このメールを削除してください。\n\nカゴピタ運営チーム`;
+  const professionalHtml = `<!doctype html><html lang="ja"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head><body style="margin:0;background:#171918;color:#e7f0e9;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Noto Sans JP',Arial,sans-serif;line-height:1.8"><div style="padding:28px 14px;background:#171918"><div style="max-width:620px;margin:0 auto;background:#202321;border:1px solid #303832;border-radius:4px;overflow:hidden"><div style="padding:34px 34px 22px"><div style="font-size:22px;font-weight:700;letter-spacing:.08em;color:#62b85b">KAGOPITA</div><h1 style="margin:22px 0 18px;font-size:30px;line-height:1.4;color:#e7f0e9">パスワードの再設定</h1><p style="margin:0 0 26px;font-size:17px;color:#d7e3d9">カゴピタをご利用いただき、ありがとうございます。<br>以下のボタンから新しいパスワードを設定してください。</p><p style="margin:0 0 28px;text-align:center"><a href="${safeUrl}" style="display:block;padding:16px 20px;border-radius:10px;background:#69bd61;color:#102214;text-decoration:none;font-size:17px;font-weight:700">パスワードを再設定する</a></p><p style="margin:0 0 22px;font-size:14px;color:#aebdb1">このリンクの有効期限は発行から30分です。期限が切れた場合は、アプリからもう一度再設定メールを送信してください。</p><p style="margin:0;font-size:14px;color:#aebdb1">この操作に心当たりがない場合は、このメールを破棄してください。リンクを他の人に共有しないでください。</p><div style="margin-top:30px;padding-top:20px;border-top:1px solid #394139;font-size:14px;color:#9cac9f">カゴピタ サポート</div></div></div></div></body></html>`;
   return mailTransporter.sendMail({
     from: process.env.SMTP_FROM || process.env.SMTP_USER,
-    to: email,
+    to: cleanEmail,
     subject,
     text,
     html: professionalHtml
-  });
-  await mailTransporter.sendMail({
-    from: process.env.SMTP_FROM || process.env.SMTP_USER,
-    to: email,
-    subject: 'カゴピタ パスワード再設定',
-    text: `パスワードを再設定するには、次のリンクを開いてください。\n\n${url}\n\nこのリンクは1時間有効です。`,
-    html: `<p>パスワードを再設定するには、次のリンクを開いてください。</p><p><a href="${url}">${url}</a></p><p>このリンクは1時間有効です。</p>`
   });
 }
 
@@ -346,9 +409,14 @@ async function verifyPassword(password, saltHex, hashHex) {
 }
 
 function setSessionCookie(res, token, expiresAt) {
+  const req = res.req;
+  const isHttps = process.env.NODE_ENV === 'production' ||
+    process.env.PUBLIC_URL?.startsWith('https://') ||
+    Boolean(req?.secure) ||
+    req?.get('x-forwarded-proto') === 'https';
   res.cookie(cookieName, token, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
+    secure: isHttps,
     sameSite: 'strict',
     path: '/',
     expires: new Date(expiresAt)
@@ -406,7 +474,7 @@ app.post('/api/session', (req, res, next) => {
     }
     return res.status(401).json({ error: 'This invite link is invalid or has already been used.' });
   }
-  if (!username || username.length > 30) {
+  if (!isValidUsername(username)) {
     return res.status(400).json({ error: '名前は1〜30文字で入力してください。' });
   }
 
@@ -457,7 +525,7 @@ app.post('/api/session', (req, res, next) => {
 
 app.post('/api/account', requireTermsAcceptance, (req, res) => {
   const username = typeof req.body?.username === 'string' ? req.body.username.trim() : '';
-  if (!username || username.length > 30) {
+  if (!isValidUsername(username)) {
     return res.status(400).json({ error: '名前は1〜30文字で入力してください。' });
   }
   const userId = require('crypto').randomUUID();
@@ -475,7 +543,7 @@ app.post('/api/register', requireTermsAcceptance, requestLimits.emailActor, requ
   const username = typeof req.body?.username === 'string' ? req.body.username.trim() : '';
   const email = normalizeEmail(req.body?.email);
   const password = req.body?.password;
-  if (!username || username.length > 30) {
+  if (!isValidUsername(username)) {
     return res.status(400).json({ error: '名前は1〜30文字で入力してください。' });
   }
   if (!isValidEmail(email)) {
@@ -642,7 +710,7 @@ app.post('/api/logout', (req, res) => {
   }
   res.clearCookie(cookieName, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
+    secure: process.env.NODE_ENV === 'production' || process.env.PUBLIC_URL?.startsWith('https://'),
     sameSite: 'strict',
     path: '/'
   });
@@ -697,6 +765,7 @@ app.use('/api', (req, res, next) => {
 });
 
 app.use('/api/push', require('./push').routes(readSessionToken));
+app.use('/api/admin',adminMonitor.routes());
 
 app.post('/api/account/credentials', requireTermsAcceptance, requestLimits.emailActor, requestLimits.emailVolume, requestLimits.emailRecipient, async (req, res, next) => {
   const email = normalizeEmail(req.body?.email);
@@ -796,7 +865,7 @@ app.delete('/api/account', (req, res) => {
     db.prepare('DELETE FROM users WHERE id = ?').run(req.user.id);
     if (token) db.prepare('DELETE FROM sessions WHERE token_hash = ?').run(database.sessionHash(token));
   });
-  res.clearCookie(cookieName, { httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: 'strict', path: '/' });
+  res.clearCookie(cookieName, { httpOnly: true, secure: process.env.NODE_ENV === 'production' || process.env.PUBLIC_URL?.startsWith('https://'), sameSite: 'strict', path: '/' });
   res.json({ message: 'アカウントを削除しました。' });
 });
 
@@ -815,12 +884,12 @@ app.get('/api/me', (req, res) => {
     ORDER BY channel_members.joined_at
   `).all(req.user.id);
   const avatar = db.prepare('SELECT avatar_data FROM users WHERE id = ?').get(req.user.id)?.avatar_data || null;
-  res.json({ user: { ...req.user, avatar }, channels });
+  res.json({ user: { ...req.user, avatar, isSiteAdmin:adminMonitor.isOwner(req.user) }, channels });
 });
 
 app.post('/api/profile', (req, res) => {
   const username = typeof req.body?.username === 'string' ? req.body.username.trim() : '';
-  if (!username || username.length > 30) {
+  if (!isValidUsername(username)) {
     return res.status(400).json({ error: '名前は1〜30文字で入力してください。' });
   }
   const avatar = req.body?.avatar === null ? null : validateAvatarData(req.body?.avatar);
@@ -861,7 +930,7 @@ app.post('/api/invites/accept', (req, res) => {
 
 app.post('/api/channels', (req, res) => {
   const name = typeof req.body?.name === 'string' ? req.body.name.trim() : '';
-  if (!name || name.length > 60) {
+  if (!isValidChannelName(name)) {
     return res.status(400).json({ error: 'リスト名は1〜60文字で入力してください。' });
   }
   const channelId = createChannel(name, req.user.id);
@@ -900,7 +969,6 @@ app.post('/api/channels/:channelId/email-invites', attachChannel, requireChannel
   }
 });
 
-// Administrators manage ordinary members; only the creator appoints administrators.
 app.patch('/api/channels/:channelId/members/:userId/role', attachChannel, (req, res) => {
   if (!['owner', 'admin'].includes(req.channelRole)) return res.status(403).json({ error: 'Only administrators can manage members.' });
   const role = req.body?.role;
@@ -1006,10 +1074,9 @@ app.post('/api/channels/:channelId/complete', attachChannel, requireChannelOwner
   res.json({ message: '買い物を完了しました。リストを削除しました。' });
 });
 
-// A duplicate belongs only to its creator; shared members and invites are not copied.
 app.post('/api/channels/:channelId/duplicate', attachChannel, (req, res) => {
   const name = req.body?.name === undefined ? `${req.channel.name.slice(0, 54)}（コピー）` : req.body.name;
-  if (typeof name !== 'string' || !name.trim() || name.trim().length > 60) return res.status(400).json({ error: 'リスト名は1〜60文字で入力してください。' });
+  if (!isValidChannelName(name)) return res.status(400).json({ error: 'リスト名は1〜60文字で入力してください。' });
   const id = crypto.randomUUID();
   const timestamp = database.now();
   database.transaction(() => {
@@ -1062,25 +1129,35 @@ recurringTimer.unref();
 
 
 
+app.use((req,res)=>{
+  if(req.path.startsWith('/api/'))return res.status(404).set({'Content-Security-Policy': API_CSP}).json({error:'該当するAPIが見つかりません。'});
+  res.status(404).set({'Cache-Control':'no-store','X-Robots-Tag':'noindex','Content-Security-Policy': ERROR_CSP}).sendFile(path.join(__dirname,'private','not-found.html'));
+});
 app.use((error, req, res, next) => {
   if (res.headersSent) return next(error);
+  if(error.type==='entity.parse.failed')return res.status(400).set({'Content-Security-Policy': API_CSP}).json({error:'リクエストの形式が正しくありません。'});
+  if(error.type==='entity.too.large')return res.status(413).set({'Content-Security-Policy': API_CSP}).json({error:'送信データが大きすぎます。'});
+  if(error.errcode===13||/SQLITE_(FULL|CORRUPT|NOTADB|CANTOPEN)|database or disk is full/i.test(String(error.code||'')+' '+String(error.message||'')))
+    adminMonitor.critical('database','データベースの重大なエラーを検出しました。');
   console.error(error);
   if (error.errcode === 13 || /database or disk is full/i.test(error.message || '')) {
-    return res.status(507).json({
+    return res.status(507).set({'Content-Security-Policy': API_CSP}).json({
       error: 'サーバーの保存領域が不足しています。空き容量を確保してから、もう一度お試しください。'
     });
   }
-  res.status(500).json({ error: 'サーバー内部でエラーが発生しました。' });
+  if(!req.path.startsWith('/api/')&&req.accepts('html'))return res.status(500).set({'Cache-Control':'no-store','Content-Security-Policy': ERROR_CSP}).sendFile(path.join(__dirname,'private','server-error.html'));
+  res.status(500).set({'Content-Security-Policy': API_CSP}).json({ error: 'サーバー内部でエラーが発生しました。' });
 });
 
 require('./push').start();
 require('./deleted-items').startDeletedItemCleanup(broadcast);
+adminMonitor.start();
 
-app.listen(PORT, () => {
+app.listen(PORT, process.env.BIND_HOST || '0.0.0.0', () => {
   const publicUrl = (process.env.PUBLIC_URL || `http://localhost:${PORT}`).replace(/\/+$/, '');
   console.log(`Server running at ${publicUrl}`);
   const bootstrapInvite = database.getInvite(database.bootstrapCode);
-  if (bootstrapInvite?.is_bootstrap) {
+  if (bootstrapInvite?.is_bootstrap && process.env.NODE_ENV !== 'production') {
     console.log(`Bootstrap invite link (first user creates the first list): ${publicUrl}/#invite=${database.bootstrapCode}`);
   } else {
     console.log('Bootstrap invite has already been used.');

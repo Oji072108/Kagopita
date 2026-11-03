@@ -1,4 +1,3 @@
-/* Public install assets only. Never cache pages, scripts, credentials or API data. */
 const CACHE = 'kagopita-pwa-v2';
 const PUBLIC_ASSETS = ['/offline.html', '/icons/pwa-192.png', '/icons/pwa-512.png'];
 self.addEventListener('install', event => {
@@ -18,7 +17,6 @@ self.addEventListener('fetch', event => {
   }
 });
 
-// Web Push is delivered by the browser even when no Kagopita page is open.
 self.addEventListener('push', event => {
   let data = {};
   try { data = event.data?.json() || {}; } catch {}
@@ -26,18 +24,19 @@ self.addEventListener('push', event => {
     body: typeof data.body === 'string' ? data.body.slice(0, 320) : '共有リストが更新されました。',
     icon: '/icons/pwa-192.png', badge: '/icons/pwa-192.png',
     tag: typeof data.tag === 'string' ? data.tag.slice(0, 100) : 'kagopita-update',
-    data: { url: '/?notifications=1' }
+    data: { url: data.url === '/admin' ? '/admin' : '/?notifications=1' }
   }));
 });
 self.addEventListener('notificationclick', event => {
   event.notification.close();
-  const destination = new URL('/?notifications=1', self.location.origin).href;
+  const isAdmin=event.notification.data?.url==='/admin';
+  const destination = new URL(isAdmin?'/admin':'/?notifications=1', self.location.origin).href;
   event.waitUntil((async () => {
     const windows = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
-    const client = windows.find(client => new URL(client.url).origin === self.location.origin);
+    const client = windows.find(client => new URL(client.url).origin === self.location.origin && (!isAdmin || new URL(client.url).pathname==='/admin'));
     if (client) {
       await client.focus();
-      client.postMessage({ type: 'kagopita:open-notifications' });
+      if(!isAdmin)client.postMessage({ type: 'kagopita:open-notifications' });
     } else await self.clients.openWindow(destination);
   })());
 });

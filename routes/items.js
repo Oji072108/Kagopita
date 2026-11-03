@@ -157,9 +157,9 @@ router.delete('/favorites/:id', (req, res) => {
 
 function validateItem(req) {
   const { name, category, qty, assignedTo = null } = req.body || {};
-  if (typeof name !== 'string' || !name.trim() || name.trim().length > 100 ||
-      typeof category !== 'string' || !category.trim() || category.trim().length > 60 ||
-      typeof qty !== 'string' || !qty.trim() || qty.trim().length > 50) {
+  if (typeof name !== 'string' || !name.trim() || name.trim().length > 100 || /[\x00-\x1f\x7f]/.test(name) ||
+      typeof category !== 'string' || !category.trim() || category.trim().length > 60 || /[\x00-\x1f\x7f]/.test(category) ||
+      typeof qty !== 'string' || !qty.trim() || qty.trim().length > 50 || /[\x00-\x1f\x7f]/.test(qty)) {
     return { error: '商品名（100文字以内）、カテゴリ（60文字以内）、数量（50文字以内）を入力してください。' };
   }
   if (assignedTo !== null && (typeof assignedTo !== 'string' || !db.prepare(
@@ -167,11 +167,10 @@ function validateItem(req) {
   ).get(req.channel.id, assignedTo))) return { error: '担当者はこのリストのメンバーから選択してください。' };
   const existing = req.params.id ? db.prepare('SELECT * FROM shopping_items WHERE id = ? AND channel_id = ?').get(Number(req.params.id), req.channel.id) : null;
   const { notes = existing?.notes || '', price = existing?.price ?? null, recurrence = existing?.recurrence || 'none' } = req.body;
-  if (typeof notes !== 'string' || notes.length > 1000) return { error: 'メモは1000文字以内で入力してください。' };
+  if (typeof notes !== 'string' || notes.length > 1000 || notes.includes('\0')) return { error: 'メモは1000文字以内で入力してください。' };
   if (price !== null && (!Number.isSafeInteger(price) || price < 0 || price > 99999999)) return { error: '価格は0〜99999999円の整数で入力してください。' };
   if (!['none', 'daily', 'weekly', 'monthly'].includes(recurrence)) return { error: '繰り返しの間隔が無効です。' };
   return { name: name.trim(), category: category.trim(), qty: qty.trim(), assignedTo, notes: notes.trim(), price, recurrence };
-
 }
 
 router.put('/items/:id', (req, res) => {
@@ -261,7 +260,6 @@ router.delete('/items/:id/permanent', (req, res) => {
   const removed = db.prepare(`DELETE FROM shopping_items
     WHERE id = ? AND channel_id = ? AND deleted_at IS NOT NULL RETURNING name`).get(id, req.channel.id);
   if (!removed) return res.status(404).json({error:'削除済みの商品が見つかりません。'});
-  // The initial deletion is already in history; refresh members without a duplicate notification.
   req.app.locals.broadcast({type:'update',channelId:req.channel.id});
   res.json({message:'商品を完全に削除しました。'});
 });

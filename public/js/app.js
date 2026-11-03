@@ -11,7 +11,6 @@ const memberRoleLabel = role => ({owner: '作成者（オーナー）', admin: '
 const $ = id => document.getElementById(id);
 const shoppingLanguage = () => localStorage.getItem('kagopita-language') || 'ja';
 const localItemName = name => KagopitaShoppingLanguage.translate(name, shoppingLanguage());
-// Mark canonical source text explicitly; DOM translation is per viewer only.
 function shoppingName(element, source) {
   element.dataset.shoppingName = source;
   element.dataset.i18nIgnore = 'true';
@@ -253,6 +252,7 @@ function updateChannelControls() {
   $('noChannels').classList.toggle('hidden', !currentUser || channels.length > 0 || ['channels', 'account'].includes(currentTab));
   $('channelViews').classList.toggle('hidden', !currentChannelId || ['channels', 'account'].includes(currentTab));
   $('nav-account').classList.toggle('hidden', !currentUser);
+  $('siteAdminLink').classList.toggle('hidden', !currentUser?.isSiteAdmin);
   $('nav-menu').classList.toggle('hidden', !currentUser);
   $('shareButton').classList.toggle('hidden', currentMemberRole !== 'owner');
   $('completeShoppingButton').classList.toggle('hidden', currentMemberRole !== 'owner');
@@ -787,7 +787,6 @@ async function deleteItem(id) {
 const categoryPicker = $('categoryPicker');
 const categoryPickerButton = $('categoryPickerButton');
 const categoryOptions = $('categoryOptions');
-// Reuse the compact picker; canonical values are independent of UI language.
 KagopitaCategory.categories.forEach(category => {
   if ([...categoryOptions.children].some(option => option.dataset.value === category)) return;
   const option = document.createElement('button');
@@ -1030,7 +1029,24 @@ $('emailInviteForm').addEventListener('submit', async event => {
 
 $('profileAvatar').addEventListener('change', () => { const file = $('profileAvatar').files[0]; if (!file) return; const image = document.createElement('img'); image.src = URL.createObjectURL(file); image.alt = '選択したプロフィール画像'; $('profileAvatarPreview').replaceChildren(image); });
 
-function avatarElement(user, fallback) { const node = document.createElement('div'); node.className = 'feed-avatar'; if (user?.avatar) { const image = document.createElement('img'); image.src = user.avatar; image.alt = ''; node.appendChild(image); } else node.textContent = fallback || user?.username?.charAt(0) || '?'; return node; }
+function isSafeAvatarUrl(url) {
+  return typeof url === 'string' && (
+    /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/i.test(url) ||
+    (url.startsWith('/') && !url.startsWith('//'))
+  );
+}
+
+function avatarElement(user, fallback) {
+  const node = document.createElement('div');
+  node.className = 'feed-avatar';
+  if (isSafeAvatarUrl(user?.avatar)) {
+    const image = document.createElement('img');
+    image.src = user.avatar;
+    image.alt = '';
+    node.appendChild(image);
+  } else node.textContent = fallback || user?.username?.charAt(0) || '?';
+  return node;
+}
 
 function updateAvatarAccess() {
   const allowed = Boolean(currentUser?.emailVerified);
@@ -1089,7 +1105,6 @@ async function loadMembers() {
     return;
   }
 
-  // Do not replace a role picker while the user is interacting with it.
   const activePicker = container.querySelector('.custom-select.is-open');
   if (activePicker) {
     if (!membersRefreshPending) {
@@ -1179,7 +1194,7 @@ function prepareAccountTab() {
   $('profileSaveButton').disabled = true;
   const preview = $('profileAvatarPreview');
   preview.replaceChildren();
-  if (currentUser.avatar) {
+  if (isSafeAvatarUrl(currentUser.avatar)) {
     const image = document.createElement('img');
     image.src = currentUser.avatar;
     image.alt = '現在のプロフィール画像';
@@ -1566,7 +1581,6 @@ function runNavigationAction(key) {
   return switchTab(key);
 }
 function syncNavigationMenu() {
-  // Channel refreshes and shortcut rebuilds must retain the current destination lock.
   $('nav-list').disabled = !currentChannelId || currentTab === 'list';
   $('nav-add').disabled = !currentChannelId || !canEditItems() || currentTab === 'add';
   $('nav-account').disabled = !currentUser || currentTab === 'account';
@@ -1675,7 +1689,6 @@ function showWelcomeMode(mode) {
   const tabMode = ['join', 'guest', 'account'].includes(mode)
     ? mode
     : ['login', 'register'].includes(mode) ? 'account' : null;
-  // Keep the account mode tabs visible while switching between register and login.
   const showModeTabs = mode === 'choice' || tabMode !== null || mode === 'login';
   $('welcomeModeTabs').classList.toggle('hidden', !showModeTabs);
   const modeIndex = { join: 0, guest: 1, account: 2 }[tabMode];

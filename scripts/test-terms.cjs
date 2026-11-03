@@ -9,8 +9,8 @@ const {DatabaseSync} = require('node:sqlite');
  const root=path.resolve(__dirname,'..'), fixture=fs.mkdtempSync(path.join(os.tmpdir(),'kagopita-terms-'));
  let child,db;
  try {
-  for(const name of ['server.js','database.js','terms.js','terms.json','realtime.js','recurring.js','notifications.js','push.js','request-limits.js','deleted-items.js'])fs.copyFileSync(path.join(root,name),path.join(fixture,name));
-  for(const name of ['node_modules','routes','public'])fs.symlinkSync(path.join(root,name),path.join(fixture,name),'dir');
+  for(const name of ['server.js','database.js','terms.js','terms.json','realtime.js','recurring.js','notifications.js','push.js','request-limits.js','deleted-items.js','admin.js','security.js'])fs.copyFileSync(path.join(root,name),path.join(fixture,name));
+  for(const name of ['node_modules','routes','public','private'])fs.symlinkSync(path.join(root,name),path.join(fixture,name),'dir');
   fs.writeFileSync(path.join(fixture,'clock-offset'),'0');
   fs.writeFileSync(path.join(fixture,'mail-stub.cjs'),`const fs=require('node:fs');const RealDate=Date;const offset=()=>Number(fs.readFileSync('clock-offset','utf8'));global.Date=class extends RealDate{constructor(...args){super(...(args.length?args:[RealDate.now()+offset()]));}static now(){return RealDate.now()+offset();}}; require('nodemailer').createTransport=()=>({sendMail:async mail=>{if(fs.existsSync('fail-mail'))throw Error('Test mail failure');fs.writeFileSync('mail.json',JSON.stringify(mail));return {};}});`);
   const socket=net.createServer();await new Promise(r=>socket.listen(0,'127.0.0.1',r));const port=socket.address().port;await new Promise(r=>socket.close(r));
@@ -61,7 +61,6 @@ const {DatabaseSync} = require('node:sqlite');
   assert.equal(db.prepare('SELECT terms_accepted_version FROM users WHERE id = ?').get(registered.id).terms_accepted_version,terms.version,'Dismissal never changes account consent');
   await req('/api/terms/seen',{version:updated.version},'',401);
   await req('/api/register',{...values,email:'stale@example.invalid',...acceptance},'',400);
-  // Advance only this isolated server's clock past the real email cooldown.
   fs.writeFileSync(path.join(fixture,'clock-offset'),'31000');
   fs.writeFileSync(path.join(fixture,'fail-mail'),'yes');
   await req('/api/register',{...values,email:'failure@example.invalid',termsAccepted:true,termsVersion:updated.version},'',502);

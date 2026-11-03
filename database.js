@@ -4,9 +4,16 @@ const path = require('path');
 const { DatabaseSync } = require('node:sqlite');
 
 const dataDirectory = process.env.KAGOPITA_DATA_DIR || path.join(__dirname, 'data');
-fs.mkdirSync(dataDirectory, { recursive: true });
+fs.mkdirSync(dataDirectory, { recursive: true, mode:0o700 });
+if (process.platform !== 'win32') fs.chmodSync(dataDirectory, 0o700);
 
 const db = new DatabaseSync(path.join(dataDirectory, 'kagopita.sqlite'));
+if (process.platform !== 'win32') {
+  for (const ext of ['', '-wal', '-shm']) {
+    const file = path.join(dataDirectory, `kagopita.sqlite${ext}`);
+    if (fs.existsSync(file)) try { fs.chmodSync(file, 0o600); } catch {}
+  }
+}
 db.exec(`
   PRAGMA foreign_keys = ON;
   PRAGMA journal_mode = WAL;
@@ -106,6 +113,12 @@ for (const [name, definition] of Object.entries({
 })) {
   if (!itemColumns.has(name)) db.exec(`ALTER TABLE shopping_items ADD COLUMN ${name} ${definition}`);
 }
+db.exec(`
+  CREATE INDEX IF NOT EXISTS shopping_items_deleted_expiry
+    ON shopping_items(julianday(deleted_at)) WHERE deleted_at IS NOT NULL;
+  CREATE INDEX IF NOT EXISTS shopping_items_channel_deleted
+    ON shopping_items(channel_id,deleted_at,id);
+`);
 if (!db.prepare('PRAGMA table_info(channels)').all().some(column => column.name === 'archived_at')) {
   db.exec('ALTER TABLE channels ADD COLUMN archived_at TEXT');
 }
@@ -144,7 +157,6 @@ function transaction(callback) {
     try {
       db.exec('ROLLBACK');
     } catch {
-      // SQLite can automatically roll back a transaction after a storage error.
     }
     throw error;
   }
@@ -257,10 +269,10 @@ if (!bootstrapCode || !/^[a-z0-9]{8}$/i.test(bootstrapCode)) {
   bootstrapCode = generateInviteCode();
 }
 if (!configuredCode) fs.writeFileSync(codePath, bootstrapCode, { mode: 0o600 });
+if(process.platform!=='win32'&&fs.existsSync(codePath))fs.chmodSync(codePath,0o600);
 
 migrateLegacyState(bootstrapCode);
 
-// Rebuild the constrained legacy role column without losing memberships.
 if (!db.prepare("SELECT sql FROM sqlite_master WHERE name = 'channel_members'").get().sql.includes("'owner', 'admin'")) {
   transaction(() => {
     db.exec(`
@@ -279,7 +291,6 @@ if (!db.prepare("SELECT sql FROM sqlite_master WHERE name = 'channel_members'").
     `);
   });
 }
-// The creator is permanent; delegated administrators never replace them.
 if (!db.prepare('PRAGMA table_info(channels)').all().some(column => column.name === 'creator_id')) {
   transaction(() => {
     db.exec('ALTER TABLE channels ADD COLUMN creator_id TEXT');
@@ -319,7 +330,7 @@ function createSession(userId) {
 }
 
 function getSession(token) {
-  if (!token) return null;
+  if (!token || typeof token !== 'string' || !/^[a-f0-9]{64}$/i.test(token)) return null;
   const row = db.prepare(`
     SELECT users.id, users.username, users.email, users.email_verified, sessions.expires_at
     FROM sessions JOIN users ON users.id = sessions.user_id
@@ -339,7 +350,7 @@ function getSession(token) {
 }
 
 function getInvite(code) {
-  if (typeof code !== 'string') return null;
+  if (typeof code !== 'string' || !/^[a-zA-Z0-9]{8}$/.test(code)) return null;
   return db.prepare('SELECT code, channel_id, is_bootstrap FROM invites WHERE code = ?')
     .get(code);
 }

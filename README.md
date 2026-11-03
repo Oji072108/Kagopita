@@ -1,49 +1,41 @@
 # カゴピタ
 
-## ローカルでの実行方法
+カゴピタは、家族や友人と買い物リストを共有するWebアプリです。商品を追加したり、買った商品にチェックを付けたりすると、同じリストを開いている人の画面にも反映されます。スマートフォンとパソコンのブラウザーで使え、ホーム画面に追加してアプリのように開くこともできます。
 
-カゴピタは、Node.jsに標準搭載されているSQLite機能を使ってデータを保存します。**Node.js 22.5以降**をインストールしてください。
+このREADMEでは、情報科学専門学校の特待生の皆さんが、手元のパソコンでアプリを起動して動きを確かめるところまでを説明します。
 
-ターミナルでプロジェクトのフォルダを開き、次のコマンドを実行します。
+## まず動かしてみる
+
+### 必要なもの
+
+- Node.js 22.5以降
+- Git
+- ターミナル（WindowsではPowerShellでも可）
+
+Node.jsのバージョンは `node --version` で確認できます。プロジェクトのフォルダーで次を実行してください。
 
 ```sh
+git clone https://github.com/oji072108/kagopita.git
+cd kagopita
 npm install
 npm start
 ```
 
-初めて起動すると、サーバーのターミナルに初期招待リンクが表示されます。このリンクを開くと、最初のアカウントと共有リストが作成され、そのユーザーが管理者になります。
+起動したら、ブラウザーで [http://localhost:3000](http://localhost:3000) を開きます。初回起動時には、ターミナルに最初の招待リンクが表示されます。リンクを開いてアカウントを作ると、最初の共有リストと管理者アカウントが作成されます。
 
-初期招待リンクは一度しか使えません。使用されるまでは、ターミナルに表示されるリンクや `data/share-token` ファイルの内容を他人に見せないでください。
+招待リンクは一度だけ使えます。使う人にだけ伝えてください。初期招待コードは `data/share-token` にも保存されます。コードやファイルの内容を公開しないでください。
 
-招待リンクを使わなくても、アプリを直接開いて表示名を登録すれば、自分専用のリストを作成できます。共有リストに参加した後でも、自分用のリストを追加して管理できます。
+招待リンクを使わず、表示名だけでゲストとして始めることもできます。その場合は自分専用のリストが作成されます。あとから共有リストに参加したり、自分用のリストを追加したりできます。
 
-## アカウントとリストの管理
+サーバーを止めるときは、起動中のターミナルで `Ctrl+C` を押します。
 
-1つのアカウントで、複数の買い物リストを使えます。
+## アカウントとパスワード
 
-リスト選択画面から、次の操作ができます。
+表示名だけのゲスト利用は、メール送信の設定なしで試せます。メールアドレスを登録すると、別の端末から同じアカウントにログインできます。新規登録時は利用規約への同意とメールアドレスの確認が必要です。ゲスト利用中にプロフィールの「アカウント」から登録した場合は、今使っているリストやメンバー情報を引き継ぎます。
 
-- 使用するリストの切り替え
-- 新しいリストの作成
-- 招待コードを使った共有リストへの参加
+アカウントのパスワードは8〜128文字です。パスワードそのものをデータベースには保存しません。登録・変更時にランダムなソルトを作り、Node.jsの `scrypt` で計算したハッシュ値とソルトを保存します。ログイン時は入力されたパスワードからハッシュを計算して照合します。
 
-リストから退出しても、アカウントや他のリストは削除されません。
-
-管理者がリストから退出した場合は、最も長く参加しているメンバーに管理者権限が引き継がれます。メンバーが誰もいなくなったリストは、自動的に削除されます。
-
-管理者は、一度だけ使用できる招待を発行したり、メンバーをリストから退出させたりできます。
-
-## メールアドレスでのアカウント登録
-
-表示名だけで使うゲスト利用はこれまでどおり可能です。別の端末から同じアカウントにログインしたい場合は、メールアドレスと8文字以上のパスワードを登録してください。
-
-新規利用時は、サインイン画面からアカウントを作成できます。すでにゲストとして利用中の場合は、プロフィール画面の「アカウント」から登録すると、現在のリストやメンバー情報をそのまま引き継げます。
-
-登録済みのメールアドレスとパスワードを使うと、別の端末からログインできます。ログアウトしてもアカウントやリストは削除されません。
-
-アカウント作成後、確認メールに記載された6桁のコードをアプリに入力すると登録が完了します。コードは24時間有効です。メールが届かない場合は、確認画面、ログイン画面、またはプロフィール画面から再送できます。未確認のメールアドレスではログインできません。
-
-確認メールの送信にはSMTP設定が必要です。Gmailを使う場合は、サーバーの環境変数に次の値を設定してください。
+メール確認とパスワード再設定メールを使うには、サーバーにSMTPを設定してください。以下はGmailを使う場合の例です。`SMTP_PASS` にはGoogleアカウントの通常のパスワードではなく、Googleで発行したアプリパスワードを設定します。
 
 ```text
 SMTP_HOST=smtp.gmail.com
@@ -51,13 +43,11 @@ SMTP_PORT=465
 SMTP_SECURE=true
 SMTP_USER=送信元のGmailアドレス
 SMTP_PASS=Googleで発行したアプリパスワード
-SMTP_FROM=送信元の表示名とメールアドレス
-PUBLIC_URL=アプリの公開URL
+SMTP_FROM=カゴピタ <送信元のGmailアドレス>
+PUBLIC_URL=http://localhost:3000
 ```
 
-`SMTP_PASS` にはGoogleアカウントの通常のパスワードを使わず、Googleアカウントで発行した16文字のアプリパスワードを使用してください。コピー時に含まれる空白は自動的に取り除かれます。パスワードやアプリパスワードはチャットやリポジトリに記載せず、サーバー環境にだけ設定してください。ローカルで試す場合は `PUBLIC_URL` を `http://localhost:3000` にしてください。
-
-設定例（PowerShell）:
+PowerShellで一時的に設定して起動する例です。値は自分の環境に置き換えてください。
 
 ```powershell
 $env:SMTP_HOST = "smtp.gmail.com"
@@ -70,173 +60,197 @@ $env:PUBLIC_URL = "http://localhost:3000"
 npm start
 ```
 
-これらの設定はサーバーの起動ごとに必要です。公開環境では `PUBLIC_URL` にHTTPSの公開URLを設定してください。SMTP未設定時は、アカウント登録やゲストアカウントへのメール登録は完了しません。
+メール確認コードの有効期限は24時間です。ログイン画面などから確認メールを再送できます。パスワードを忘れた場合は、ログイン画面から再設定メールを送れます。再設定リンクは30分で期限切れになります。
 
-現在、パスワードの再設定には対応していません。登録したパスワードを安全に保管してください。
+SMTPの値やパスワードをチャットやGitリポジトリに書かないでください。公開環境では `PUBLIC_URL` にHTTPSのURLを設定し、秘密情報はサーバーの環境変数で管理します。
 
-## 商品とお気に入り
+## リストの使い方
 
-商品はカテゴリや数量を指定して、買い物リストに追加できます。
+商品をカテゴリや数量と一緒に登録できます。商品名に応じた数量の単位（トマトなら「個」、にんじんなら「本」など）は候補として自動入力されます。候補が合わないときは自由に直せます。よく買う商品は星ボタンでお気に入りに登録すると、「追加・共有」画面からもう一度追加できます。
 
-よく購入する商品は、商品行にある星ボタンを押すとお気に入りに登録できます。登録した商品は「追加・共有」画面からワンタップで再追加できるため、毎回入力する必要がありません。
+1つのアカウントで複数のリストを使えます。リスト選択画面では、リストの切り替えや新規作成、招待コードを使った参加ができます。リストから退出しても、アカウントや他のリストは残ります。管理者が退出すると、最も長く参加しているメンバーに管理者権限が引き継がれます。メンバーがいなくなったリストは削除されます。
 
-お気に入りはリストごとに管理され、不要になった商品は後から削除できます。
+管理者は招待を発行したり、メンバーを退出させたりできます。リストの変更は、接続中のメンバーにリアルタイムで反映されます。通信が切れて再接続したときや、アプリに戻ったときも状態を同期します。各リストには直近100件の履歴が残ります。
 
-## 買い物の完了と履歴
+## データの保存
 
-買い物を完了すると、対象のリストに関するデータが削除されます。削除されるのは、リスト本体、商品、招待、履歴、メンバー登録です。
-
-ただし、他のリストやアカウントには影響しません。
-
-リストの変更は、Server-Sent Events（SSE）によって、接続中のメンバーにリアルタイムで反映されます。商品・チェック状態・お気に入り・メンバーの変更はページの再読み込みなしで更新され、再接続時やアプリに戻ったときも自動で同期します。定期ポーリングは行いません。SSE非対応のブラウザでは、アプリに戻るかページを再読み込みすると最新の状態になります。利用規約も定期確認せず、初回表示・アプリ復帰・必要な操作時に確認します。また、各リストには最新100件の履歴が保存されます。
-
-リアルタイム更新の結合テスト: `node scripts/test-live-updates-ui.cjs`（Playwrightが必要）。一時データベースと専用サーバーを使用し、別ユーザー間の更新、切断・再接続、サーバー再起動、定期ポーリングの不使用と復帰時の同期を検証します。
-
-## データの保存とバックアップ
-
-SQLiteのデータベースは、次のファイルに保存されます。
+データベースにはNode.js標準のSQLite機能を使っています。通常、データは次の場所に保存されます。
 
 ```text
 data/kagopita.sqlite
 ```
 
-データベース本体と、実行中に作成されるWAL関連ファイルはGitの管理対象外です。
+初回起動時に `data/family-state.json` があれば、メンバー、セッション、招待、商品、履歴をSQLiteに移行します。元のJSONファイルは変更せずに残します。データの保存先を変える場合は、環境変数 `KAGOPITA_DATA_DIR` に書き込み可能なフォルダーを指定します。
 
-初回起動時に `data/family-state.json` が存在する場合、アプリはメンバー、現在のセッション、招待、商品、履歴のデータをSQLiteに移行します。元のJSONファイルは変更せず、バックアップとして残します。
+バックアップを取るときは、サーバーを停止してからデータベースファイルをコピーしてください。サーバーを動かしたままコピーする場合は、SQLiteのバックアップAPIを使います。実データや招待コードをGitに追加しないでください。
 
-SQLiteのバックアップを作成する場合は、次のいずれかの方法を使用してください。
+## 公開環境で動かす場合
 
-- サーバーを停止してからデータベースファイルをコピーする
-- サーバーを稼働させたまま、SQLiteのバックアップAPIを使用する
+インターネットに公開する場合は、HTTPSを設定し、`PUBLIC_URL` に公開URLを指定してください。最初の招待コードを公開せず、最初の管理者になる人にだけ共有します。初回起動前に環境変数 `FAMILY_SHARE_TOKEN` を設定すると、初期招待コードを指定できます。推測されにくい英数字8文字を使い、他人に見せないでください。2回目以降の招待はアプリ内で発行します。
 
-データの保存先を変更したい場合は、`KAGOPITA_DATA_DIR` に書き込み可能なディレクトリを指定してください。データベース、初期招待コードのファイル、移行元のJSONファイルの保存場所が変更されます。
+SMTPの設定方法やHTTPSの構成は、利用するサーバー環境によって異なります。このREADMEはローカル起動までの案内です。
 
-## 公開環境へのデプロイ
+## 主な機能
 
-インターネット上に公開する場合は、サーバーの起動時に `PUBLIC_URL` へ公開用のHTTPSアドレスを設定してください。
+- 商品の追加・編集、購入済みチェック、お気に入り
+- メモ、価格、毎日・毎週・毎月の繰り返し設定
+- 共有リストの複製とアーカイブ、削除した商品の復元
+- 作成者・管理者・編集者・メンバーごとの権限
+- 招待コードでのリスト共有
+- メール登録、メール確認、ログイン、パスワード再設定
+- リアルタイム更新、アプリ内通知、対応端末へのWeb Push通知
+- 日本語、英語、韓国語、中国語、スペイン語の表示
+- ダークモードとホーム画面へのインストール
 
-初回デプロイ時には、必要に応じて起動前に `FAMILY_SHARE_TOKEN` を設定できます。値には、他人に推測されにくい非公開の英数字8文字を指定してください。
+## 開発時の確認
 
-初期招待リンクは、最初の管理者になるユーザーにだけ共有してください。初期招待コードを公開すると、意図しないユーザーが参加する可能性があります。
+以下は機能を変更したときに使える確認用コマンドです。UI関連の一部はPlaywrightが別途必要です。テストは一時データベースやテスト用アカウントを使うものが多いですが、実行前に各スクリプトの内容を確認してください。
 
-2回目以降の招待は、アプリ内から発
-## アップデートログ
+### リアルタイム更新
+
+更新はServer-Sent Events（SSE）で受け取り、ページを再読み込みせずに表示へ反映します。SSEに対応していないブラウザーでは、アプリに戻るかページを再読み込みしたときに最新状態を取得します。定期ポーリングは使いません。
+
+```sh
+node scripts/test-live-updates-ui.cjs
+```
+
+Playwrightが必要です。このテストは一時データベースと専用サーバーを使い、複数ユーザー間の更新、切断・再接続、サーバー再起動後の同期を確認します。
+
+### 数量候補
+
+追加・編集画面では、商品名に応じて数量の単位を提案します。判定ルールは `public/js/quantity.js` にあり、インターネット接続や外部翻訳サービスは使いません。商品名だけを変更しても、すでに入力されている数量は書き換えません。
+
+```sh
+node scripts/test-quantity.cjs
+NODE_PATH=<Playwrightのある環境>/node_modules node scripts/test-quantity-ui.cjs
+```
+
+UI確認用サーバーの既定URLは `localhost:3001` です。変更する場合は `KAGOPITA_TEST_URL` を指定します。画面テストはAPIデータを差し替え、実際のリストを書き換えない構成です。
+
+### 商品の詳細とリスト管理
+
+- 商品の鉛筆ボタンから内容を編集できます。
+- 追加・編集画面の「詳細（メモ・価格・繰り返し）」でメモ、円単位の合計価格、毎日・毎週・毎月の繰り返しを設定できます。
+- 繰り返し商品は購入後、指定した周期で未購入の状態に戻ります。同じ商品行を再利用するため、予定日を過ぎても重複しません。月ごとの繰り返しは月末を超えない日に調整されます。削除済みの商品やアーカイブ済みリストは繰り返しません。
+- 「共有リスト」からリストを複製できます。複製には削除されていない商品と詳細が含まれ、購入済み状態はリセットされます。メンバー、招待、履歴、担当者、削除済み商品は複製されません。
+- アーカイブしたリストは「アーカイブしたリスト」から管理者が戻せます。アーカイブ中は商品を変更できませんが、複製は可能です。
+- 「削除した商品」から復元できます。復元した商品は未購入状態になります。この機能より前に削除した商品は復元できません。「完了して削除」はリスト全体を完全に削除します。
+- データベースのスキーマ変更は起動時に追加適用されます。既存環境を更新する前にバックアップしてください。
+
+```sh
+node scripts/test-item-management.cjs
+node scripts/test-quantity.cjs
+node scripts/test-list-features.cjs
+```
+
+実機に近いモバイルブラウザーの確認では `KAGOPITA_BROWSER_TEST=1` を指定し、Playwrightを別途用意します。必要に応じて `PW_EXECUTABLE_PATH` でChromiumの実行ファイルを指定してください。各機能テストは一時データベースとアカウントを使います。
+
+### 表示言語
+
+言語設定はブラウザーごとに保存されます。日本語、英語、韓国語、中国語（簡体字）、スペイン語に対応しています。買い物でよく使う商品名や単位はローカルの辞書で表示時に置き換えます。保存データやメモ、ブランド名は書き換えず、辞書にない語句を機械翻訳することもありません。
+
+```sh
+node scripts/test-shopping-language.cjs
+NODE_PATH=<Playwrightのある環境>/node_modules node scripts/test-shopping-language-ui.cjs
+```
+
+### ダイアログとテーマ
+
+削除確認やエラー表示には、ブラウザー標準のポップアップではなくアプリ内ダイアログを使います。名前はテキストとして表示し、誤操作や連続送信を防ぎます。テーマ切替はシステム設定に追従し、利用者が変更した設定は保存されます。
+
+```sh
+NODE_PATH=<Playwrightのある環境>/node_modules node scripts/test-action-dialogs-ui.cjs
+NODE_PATH=<Playwrightのある環境>/node_modules node scripts/test-auth-theme-ui.cjs
+```
+
+どちらも既定では `localhost:3001` のプレビューを使います。`KAGOPITA_TEST_URL` で変更できます。APIリクエストを差し替えるため、実際のリストやアカウントは変更されません。
+
+### 利用規約
+
+`terms.json` が日本語の原文と各言語の翻訳を管理します。現在の翻訳文は公開前に確認が必要な下書きです。規約を変更するときは、新しい一意のバージョンを付け、`updatedAt`、`summary`、`sections` と各言語の翻訳を一緒に更新します。画面の最後まで進んだことは、内容を読んだ・理解した証明にはなりません。
+
+新規登録、ゲスト作成、既存セッションなしでの初回招待参加、ゲストからメールアカウントへの切り替えでは、規約への同意が必要です。サーバーは同意状態と現在のバージョンを確認し、同意したバージョンと時刻を保存します。ログインやログイン済みユーザーの招待参加では、作成時の同意を繰り返し求めません。
+
+利用者にはアプリ内で規約の更新を知らせます。稼働中の画面は60秒ごととアプリ復帰時に確認し、不在だった利用者には次回アクセス時に表示します。これはメールやプッシュ通知ではありません。確認済みバージョンは同意済みバージョンと別に管理します。
+
+```sh
+node scripts/test-terms.cjs
+NODE_PATH=<Playwrightのある環境>/node_modules node scripts/test-terms-ui.cjs
+```
+
+API・データベース確認は分離した環境で行い、画面確認はテスト用APIデータを使います。実メールや利用者データは使いません。
+
+### 読み込み表示と通信のタイムアウト
+
+- 利用者が開始した通信中は、処理中の表示を出し、二重送信を防ぎます。入力内容やボタンの状態は保ちます。
+- リストとメンバー画面の切り替えは待たせず、背景での更新も操作を止めません。
+- 通信は応答本文の読み込みを含めて30秒でタイムアウトします。一連の処理では共通の期限を使います。タイムアウト時は画面を操作可能に戻し、エラーを表示します。自動で再送はしません。サーバー側で処理が終わっている可能性があるため、再試行の前に状態を確認してください。
+
+```sh
+NODE_PATH=<Playwrightのある環境>/node_modules KAGOPITA_TEST_URL=http://127.0.0.1:3001 node scripts/test-loading-ui.cjs
+```
+
+専用のテストサーバーで実行してください。この確認には実際の30秒タイムアウトが含まれます。
+
+### 画面とPWA
+
+画面はライト・ダークテーマ、キーボード操作、動きを減らす設定に対応しています。インストールできる端末では、ホーム画面から単独のWebアプリとして起動できます。PWAアイコンを作り直す場合は、任意のビルド用ツール `sharp` と `scripts/generate-pwa-icons.cjs` を使います。実行時に追加ライブラリは必要ありません。
+
+- Androidでは、ブラウザーがインストール可能と判断したときに「カゴピタをインストール」が表示されます。インストール後は表示されません。
+- iPhone・iPadでは、ヘッダーメニューの「インストール方法」からSafariでホーム画面に追加する手順を確認できます。
+- パソコンやすでに単独アプリとして開いている画面には、インストール操作を表示しません。
+- Service WorkerはHTTPSまたは開発用のlocalhostで登録されます。キャッシュするのは公開アイコンと共通のオフライン画面だけです。ログイン後の画面、API応答、セッション、買い物データはキャッシュしません。買い物操作には通信が必要です。
+- 本番環境ではHTTPSを使い、`/manifest.webmanifest`、`/sw.js`、`/offline.html`、`/icons/` を同じオリジンから配信してください。
+
+```sh
+NODE_PATH=<Playwrightのある環境>/node_modules node scripts/test-pwa-ui.cjs
+```
+
+このテストは一時サーバーでAndroid・iOS・iPadOS・パソコンの画面を模擬します。実機での通知やインストールを保証するものではありません。公開後は実際の端末にもインストールして確認してください。
+
+### メンバー権限とアプリ内通知
+
+リストの作成者（オーナー）は固定され、管理者を任命できるのは作成者だけです。管理者は商品と一般メンバーを管理できますが、作成者や他の管理者の権限は変更できません。編集者は商品を管理でき、メンバーは商品を見たり購入済みにしたりできます。招待で参加した人はメンバーになります。
+
+作成者が退出またはアカウント削除をすると、リスト、商品、履歴、通知が削除されます。それ以外のメンバーが退出してもリストは残ります。既存データの移行では、記録が残っていれば元の作成者を復元し、閲覧者の権限はメンバーに移します。
+
+ベルボタンから、他のメンバーによる商品変更の通知を確認できます。通知は利用者ごとに保存され、10件ずつ読み込みます。既読にしたり通知を削除したりしても、サーバー再起動後に復活しません。SSEと再接続時の同期で更新し、定期ポーリングはしません。リストから退出したメンバーには、そのリストの通知が届かなくなります。
+
+```sh
+NODE_PATH=<Playwrightのある環境>/node_modules node scripts/test-member-roles.cjs
+node scripts/test-role-migration.cjs
+```
+
+### Web Push通知
+
+暗号化されたWeb Push通知は、HTTPS上のインストール済みアプリで利用できます。対応するAndroid・パソコンのWebアプリと、iOS/iPadOS 16.4以降のホーム画面アプリが対象です。通常のブラウザータブではプッシュ通知の設定は表示されませんが、アプリ内通知は利用できます。
+
+端末ごとにログイン（またはゲスト参加）し、アカウント画面の「プッシュ通知」から有効にして、ブラウザーの許可を選びます。iPhone・iPadでは、先にホーム画面へ追加し、そのアプリを開いてください。通知の許可を拒否した場合、アプリが勝手に再確認を求めることはありません。テスト通知は1分に1回まで送信できます。
+
+同じリストの他のメンバーが商品を変更すると、購読中の各端末に通知します。操作した本人には送りません。通知文は端末ごとの言語設定に合わせます。商品名や数量の一部は端末内の辞書で表示用に翻訳しますが、保存済みのデータは変更しません。OSの通知設定や集中モード、通信状態によって届かない場合があります。
+
+購読情報はユーザーIDだけでなくログインセッションにも結び付いています。ログアウトした端末の購読だけが解除され、アカウント削除や期限切れのセッションでも解除されます。通知をオフにすると、サーバー側の購読とブラウザー側の登録を削除します。無効になった送信先も自動で削除されます。
+
+VAPID鍵は初回起動時に `<KAGOPITA_DATA_DIR>/web-push-vapid.json`（既定では `data/`）に作成され、ファイル権限は可能な環境で `0600` に設定されます。データベースと一緒にバックアップしてください。公開したり、理由なく作り直したりしないでください。ブラウザーの既存購読に影響します。通知キューは一時的な失敗を再試行しますが、配信保証や配信確認を行う仕組みではありません。
+
+```sh
+node scripts/test-push.cjs
+NODE_PATH=<Playwrightのある環境>/node_modules node scripts/test-push-ui.cjs
+```
+
+これらのテストは実際のプッシュ送信先には接続せず、実機への配信も確認しません。実機確認では2台に通知を設定し、一方でリストを変更して、もう一方の通知とタップ後の動きを確かめてください。HTTPのテスト用URLではプッシュ通知の許可を要求できません。HTTPSの公開環境またはlocalhostを使います。
+
+## 広告について
+
+アプリにはGoogle AdSenseの読み込み処理と、広告を置くための枠があります。現時点では広告は配信されません。kagopita.comの審査通過と広告枠IDの設定が必要です。IDを推測で設定しないでください。実際に有効化する前に、AdSenseの審査状況、同意要件、`ads.txt` の要否を確認してください。
+
+## 更新履歴
 
 ### 2026-10-25
 
-- アカウント登録画面からログイン画面へ切り替えられるように改善
-- ログイン画面でも利用方法のタブを表示し、アカウントを選択状態に維持
-- プロフィールダイアログの見出しを中央配置し、左右と上下の余白を統一
+- アカウント登録画面とログイン画面を切り替えられるように変更
+- ログイン画面にも利用方法を表示し、アカウント選択を維持
+- プロフィール画面の見出しと余白を調整
 - 未ログイン時はプロフィール画像の変更欄を非表示化
-- スクロールバーをサイトの配色に合わせて調整
-
-### 2026-10-25（追加）
-
-- メールアドレスとパスワードの必須入力チェックを追加
-- 未入力の項目を赤く強調し、入力内容に応じたエラーメッセージを表示
-- メールアドレスの形式を検証し、不正な形式を受け付けないように改善
-
-
-### Japanese quantity suggestions
-
-The Add and Edit forms accept number-only quantities and suggest Japanese counters
-from common item names (for example トマト → 個, にんじん → 本, 箸 → 膳).
-`public/js/quantity.js` contains ordered offline rules; packaging words take priority
-and unknown products fall back to 個. These are suggestions, not grammatical or
-packaging guarantees: enter a free-form quantity when a specific unit is needed. Counters are automatic; no unit picker is shown.
-Existing explicit quantities are never rewritten just because a name changes.
-
-Run `node scripts/test-quantity.cjs` for rule checks. With Playwright installed in a
-separate test environment, run `NODE_PATH=<test-env>/node_modules node scripts/test-quantity-ui.cjs`
-against the running preview (`KAGOPITA_TEST_URL` overrides localhost:3001).
-The UI check loads real assets and mocks API data/writes, so no live list is changed.
-
-### Item details and list management
-
-- Edit an item using its pencil button. Quantity counters remain automatic.
-- Add/Edit → **詳細（メモ・価格・繰り返し）** holds optional notes, total price for that item in whole yen, and daily/weekly/monthly recurrence.
-- Repeating items return to unchecked after the chosen interval following purchase. The same row is reused, so missed intervals do not create duplicate items. Monthly repeats clamp to the last valid day of the month. Deleted items and archived lists do not renew.
-- **共有リスト** provides **複製** and admin-only **アーカイブ**. Copies contain non-deleted items (including details and recurrence), reset purchase status, and belong only to the copying user; assignments, members, invites, activity, and deleted items are not copied.
-- Archived lists remain under **アーカイブしたリスト** and can be unarchived by their admin. Item mutations are blocked until unarchived; duplicates can still be made.
-- **削除した商品 → 復元** restores soft-deleted items, including their details, as unchecked. Deletions made before this feature cannot be recovered. The existing **完了して削除** action still permanently deletes an entire list.
-- Schema changes are additive and run at startup. Back up the SQLite database before updating an existing deployment.
-
-Checks: `node scripts/test-item-management.cjs`, `node scripts/test-quantity.cjs`, and `node scripts/test-list-features.cjs`. For real mobile browser flows, set `KAGOPITA_BROWSER_TEST=1`, make `playwright-core` available, and optionally set `PW_EXECUTABLE_PATH` to your Chromium executable when running the last command. All feature tests use temporary databases and accounts.
-
-
-### Shared-list languages
-
-Each browser keeps its own Japanese, English, Korean, Simplified Chinese, or Spanish preference. `public/js/shopping-language.js` provides an offline, alias-based vocabulary for common shopping names, feeding both category and quantity inference. Names, favorites, deleted items, and known counters are localized for display; saved names/quantities, edits, brands, and notes retain their original text. Unknown words are not machine-translated. Extend the five-column vocabulary for additional terms; no external translation service or credential is used.
-
-Verify with `node scripts/test-shopping-language.cjs` and the Playwright `scripts/test-shopping-language-ui.cjs` (uses API fixtures, never live list writes).
-
-### Themed dialogs and signed-out navigation
-
-Destructive actions and error notices use `public/js/dialogs.js` instead of native browser popups. Dialogs preserve names as text, focus Cancel first, prevent repeated submissions, and show request failures inline. The header sun/moon switch follows the system until explicitly changed, saves the preference, and supports keyboard use and cross-tab updates. Shopping navigation stays hidden until a session is confirmed and closes on session expiry; authenticated guest accounts still have navigation.
-
-With Playwright available separately, run `NODE_PATH=<test-env>/node_modules node scripts/test-action-dialogs-ui.cjs` and `NODE_PATH=<test-env>/node_modules node scripts/test-auth-theme-ui.cjs`. Both load the real preview assets (localhost:3001 by default; override with `KAGOPITA_TEST_URL`) and intercept API requests, so no live members, lists, or accounts are changed.
-
-### Versioned Terms of Service
-
-`terms.json` contains the canonical Japanese terms and complete English (`en`), Korean (`ko`), Simplified Chinese (`zh`), and Spanish (`es`) translations under `translations`, currently a **draft for review**. The reader title, eight sections, and update summary follow the app language, including changes while the reader is open. All translations share one acceptance version. Review/edit that text before publishing. Email registration, guest creation, first-time invitation joins without an existing session, and guest-to-email upgrades require reading the document to the end, confirming that step, and explicitly checking acceptance. The API also requires `termsAccepted: true` and the exact current `termsVersion`; successful account or guest creation records the version and UTC acceptance time on the user. Reaching the end is a UI safeguard, not proof someone read or understood the text. Existing-user login and invitation joins using an existing session do not repeat the creation acceptance step.
-
-To notify both guests and account holders of an update, edit `terms.json`, give it a **new unique version**, and update `updatedAt`, `summary`, and `sections` together, including every entry in `translations`. The server reads it per request. Active clients check every 60 seconds and when returning to the app; absent users see the notice on their next visit. This is an in-app notification, not email or push notification. Acknowledgment is persisted per user/session identity (`terms_seen_version`) and is separate from acceptance (`terms_accepted_version` / `terms_accepted_at`). Existing users get a notice when this feature is introduced; newly created guests accept and start at the current version. Guest acknowledgments cannot follow an identity lost by clearing its session. Updates invalidate unchecked/read-only registration state and stale-version submissions are rejected.
-
-Run `node scripts/test-terms.cjs` for isolated API/database checks. With Playwright available separately, run `NODE_PATH=<test-env>/node_modules node scripts/test-terms-ui.cjs` for browser checks using API fixtures. No live email or user data is used by these checks.
-
-### Loading and request deadlines
-
-- User-triggered network actions show a themed spinner and temporarily block page interactions, including keyboard and duplicate form submissions. Control disabled states and drafts are preserved.
-- **List and Members navigation have no loading overlay or interaction lock.** Instant local controls use only press feedback. Background updates remain non-blocking.
-- Requests (including reading response bodies) stop waiting after 30 seconds. A sequence of requests from one action shares that deadline. Timeouts abort browser fetches, unlock the UI, and show a translated error; no automatic mutation retry is attempted. A server may already have applied a change before cancellation, so users are told to check the latest state before retrying.
-- Run `NODE_PATH=<test-env>/node_modules KAGOPITA_TEST_URL=http://127.0.0.1:3001 node scripts/test-loading-ui.cjs` against an isolated test server. This includes a real 30-second timeout and virtual-time tests for chained requests and slow response bodies.
-
-### UI polish
-
-- Shared button, form, dialog and navigation refinements support light/dark themes, keyboard focus and reduced motion.
-- Installation is a single entry in the existing header menu; the guide restores menu focus on close.
-- Responsive UI sweep: `NODE_PATH=/path/to/playwright/node_modules KAGOPITA_TEST_URL=http://127.0.0.1:3001 node scripts/test-ui-polish.cjs` (use an isolated test server, not production).
-
-### PWA installation
-
-Kagopita can be installed as a standalone web app. `public/manifest.webmanifest` uses the existing cart branding, with checked-in 192×192 and 512×512 PNGs. No new runtime dependency is required. To regenerate only these icons, run `scripts/generate-pwa-icons.cjs` with the same optional build-time `sharp` tooling used for existing brand assets.
-
-- **Android:** “Install Kagopita” appears only after the browser supplies `beforeinstallprompt`. It opens the browser's native prompt, hides after installation, and waits for a new eligible event after dismissal. Browser eligibility/engagement rules still apply.
-- **iPhone/iPad:** “How to Install” in the header menu opens Safari instructions with outlined Share and Add to Home Screen symbols, including desktop-UA iPadOS detection. Installation is manual using **Share → Add to Home Screen → Open as Web App (if offered) → Add**. Instructions use the existing language system, including Japanese and English.
-- Desktop and already-standalone windows do not show installation controls. The install modal supports Escape, a Close button, focus return, mobile scrolling, and the existing themes.
-- `public/sw.js` registers only in a secure context (HTTPS, or localhost for development). Its cache is restricted to the two public icons and the generic bilingual offline page. It does **not** cache authenticated HTML, JavaScript/CSS, API responses, session information, or shopping data. Shopping operations still require an internet connection. All app navigations try the network first, so deployments are not pinned to an old cached app shell.
-- The existing Express server serves the manifest, icons and worker. The worker route disables HTTP caching for update checks. No changes to VPS configuration, `.env`, or deployment automation are required. Production must serve HTTPS and allow `/manifest.webmanifest`, `/sw.js`, `/offline.html`, and `/icons/` from the same origin.
-
-Run `NODE_PATH=<test-env>/node_modules node scripts/test-pwa-ui.cjs` with Playwright available separately. The test uses a temporary server/database and checks emulated Android/iOS/iPadOS/desktop flows, JA/EN instructions, standalone hiding, manifest/icon validity, worker control, cache contents, and offline recovery. It is **not physical-device testing**. After deployment, manually install on Android Chrome and Safari on an iPhone/iPad, then launch from the home screen and verify standalone mode and normal sign-in/list sharing.
-
-## Member roles and item notifications
-
-The creator is the permanent **作成者（オーナー）**. Only the creator can appoint **管理者** (delegated administrators). Administrators can edit items and manage ordinary editors/members, but cannot change/remove the creator or appoint/manage other administrators. Ownership is not transferable. Editors manage items; **メンバー** (renamed from viewer) can read and check/uncheck items only. New invitees always start as members, in both guest and account invite flows. The API enforces the same rules as the custom role dropdown. Leaving as the creator, including deleting the creator's account, deletes the list, items, history and list notifications for everyone; leaving as any other role does not. The leave confirmation explains the distinction. Migration preserves existing editors and maps viewers to members, recovering the original creator from retained creation activity where available, otherwise retaining the current owner.
-
-The header bell opens a **menu-style in-app notification drawer**. Other members' item changes create persistent per-recipient notifications. The server returns 10 notifications per page with a global unread badge; there is no automatic 100-row truncation. “Mark all as read” deletes the current user's notifications through the latest observed ID across all pages, not other users' inboxes; concurrent newer arrivals are retained. Notifications remain cleared after restart. The drawer supports bell toggle, close button, outside pointer dismissal and Escape. SSE change events and reconnect/app-resume catch-up keep the inbox current without periodic polling. Removed members lose their list notifications. The inbox remains available independently of optional Web Push (see below).
-
-Run `NODE_PATH=<test-env>/node_modules node scripts/test-member-roles.cjs` for isolated API and real mobile-browser checks, and `node scripts/test-role-migration.cjs` for previous-schema migration, recorded creator recovery, notification preservation and restart integrity. Neither test touches live accounts or lists.
-
-
-## AdSense preparation
-
-The main app includes one official AdSense publisher loader for `ca-pub-5805938506004625`. Three labeled responsive containers sit below the header, below the shopping-list content, and at the bottom of the main content, outside fixed navigation and input controls. No ads or placeholder ads are supplied. Unconfigured/loading/unfilled containers collapse without consuming space.
-
-Advertising is intended for revenue: mobile-data optimizations must preserve the publisher loader (including Auto ads support) and must not disable ads based on Data Saver mode. Keep bandwidth savings focused on app asset compression, caching and unnecessary application syncing.
-
-Actual ads are **not live**: approval of kagopita.com by Google AdSense and valid responsive Display ad slot IDs are still required. In `public/js/ads.js`, replace the empty strings in `slots` with the real IDs for this publisher. Never invent IDs. Units initialize once when their placement is visible; no automatic refresh or ad interactions are implemented. Check the site's AdSense account for approval, consent and ads.txt requirements before enabling units. Keep any AdSense Auto ads setting consistent with the desired manual placements; Auto ads are controlled separately by Google.
-
-Verify the loader occurs only once, the slots remain empty until issued by Google, and all three containers are hidden without slots. Verify 320px, tablet and desktop widths in both themes and exercise shopping-list navigation and CRUD using isolated test data.
-
-
-## Web Push notifications
-
-Standard encrypted Web Push is available only inside installed Kagopita apps on HTTPS (compatible Android/desktop installed web apps and iOS/iPadOS 16.4+ Home Screen apps). Browser tabs hide push settings and the push menu entry, do not show opt-in offers, and do not initialize push subscriptions. The in-app notification inbox remains available in browser tabs. On each device, sign in (or join as a guest), open **Account → Push notifications**, enable notifications and accept the browser permission prompt. iPhone/iPad users must first add Kagopita to the Home Screen and open that installed app. Eligible signed-in users without notifications first see a one-time in-app “Would you like notifications?” question. “Not now” is remembered per account/browser. The native browser permission dialog appears only after an explicit enable tap. Hamburger menu → Push notifications remains available after declining. Blocked browser permissions are never re-requested automatically: the settings screen explains how to allow them in browser/OS settings, with a recheck button. Open the installed app to configure push on any platform. Use **Send test notification** to queue a test for the current device (limited to once per minute). Browser/OS notification settings, Focus modes and network availability still affect delivery.
-
-Every subscribed device belonging to another current list member receives a detailed lock-screen notification when items change (for example, “Alex added: tomato (10 pieces)”). The actor is excluded. The notification title describes the action rather than repeating the app name; OS-controlled app attribution may still appear. Each device stores its own selected Kagopita language (Japanese, English, Korean, Chinese or Spanish), synchronized on opt-in, app refresh and language changes. Existing subscriptions default to Japanese until the device next opens the app. Recognized shopping vocabulary and counters are translated locally; unknown names, brands and free-form quantities remain as entered, and saved records are never rewritten. Item/actor details are now visible in notification previews, subject to OS preview settings. Notification taps open the existing inbox. Read/removed notifications cancel unsent jobs. List access is checked again before each send; leaving a list prevents future delivery, but the OS may already have displayed an earlier notification.
-
-Subscriptions are bound to authenticated sessions, not just user IDs. Multiple devices/sessions work independently; logging out of one removes only that session's subscriptions. Account deletion, password/session invalidation and expired sessions revoke their subscriptions. Explicit browser/account opt-in transfers a subscription without transferring queued messages. Turning notifications off removes the current subscription server-side and unsubscribes in the browser. An expired push endpoint (HTTP 404/410) is removed automatically. Users can re-enable after expiry; the app never silently re-enables or prompts on their behalf.
-
-`web-push` provides VAPID and payload encryption without a paid notification platform. Private/public VAPID keys are generated once in `<KAGOPITA_DATA_DIR>/web-push-vapid.json` (default `data/`), mode 0600. Keep this file with database backups; do not publish or rotate it casually, because existing browser subscriptions depend on its public key. No existing `.env` settings are replaced. SQLite `push_devices` and `push_queue` tables are additive and use cascading foreign keys. A durable queue retries transient delivery failures with bounded exponential backoff and a 24-hour cutoff; delivery is at-least-once with stable notification tags. It is not a guaranteed delivery or delivery-receipt service. Only established HTTPS browser push-service endpoint hosts are accepted.
-
-Run `node scripts/test-push.cjs` for isolated two-session/two-device fanout, real VAPID/encryption construction with mocked outbound transport, authorization, endpoint validation, queue/restart integrity, expiry and cleanup. Run `NODE_PATH=<playwright-environment>/node_modules node scripts/test-push-ui.cjs` for mobile opt-in UX, permissions, translations, responsive layouts and actual service-worker event handlers. These tests do not contact real push endpoints or prove delivery on physical phones. Finish device acceptance by enabling on both physical devices, closing the app, changing a shared-list item from the other member, and checking the notification and tap behavior. The HTTP test-app URL cannot request push permissions; use the HTTPS production site or localhost for tests.
+- メールアドレスとパスワードの入力確認、メール形式の検証を追加
+- 入力漏れや形式エラーを画面上で分かるように改善

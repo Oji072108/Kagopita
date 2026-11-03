@@ -1,4 +1,3 @@
-/* Standard encrypted Web Push; sessions own devices, and SQLite owns the retry queue. */
 const fs = require('node:fs');
 const path = require('node:path');
 const webpush = require('web-push');
@@ -35,9 +34,10 @@ db.exec(`
     UNIQUE(device_id, notification_id)
   );
 `);
-// Additive migration keeps existing device registrations and queued work intact.
 if (!db.prepare('PRAGMA table_info(push_devices)').all().some(column => column.name === 'language'))
   db.exec("ALTER TABLE push_devices ADD COLUMN language TEXT NOT NULL DEFAULT 'ja'");
+if (!db.prepare('PRAGMA table_info(push_queue)').all().some(column => column.name === 'admin_payload'))
+  db.exec('ALTER TABLE push_queue ADD COLUMN admin_payload TEXT');
 function validSubscription(value) {
   if (!value || typeof value.endpoint !== 'string' || value.endpoint.length > 2048) return false;
   let url;
@@ -61,6 +61,16 @@ function enqueue(notificationId, userId) {
     SELECT d.id, ?, ?, ? FROM push_devices d JOIN sessions s ON s.token_hash = d.session_hash
     WHERE d.user_id = ? AND s.user_id = d.user_id AND s.expires_at > ?`).run(notificationId, time, time, userId, time);
 }
+function enqueueAdminAlert(userId, incident) {
+  if(userId!==process.env.KAGOPITA_ADMIN_USER_ID)return 0;
+  const user=db.prepare('SELECT email,email_verified FROM users WHERE id=?').get(userId);
+  if(!user?.email_verified||user.email?.toLowerCase()!==process.env.KAGOPITA_ADMIN_EMAIL?.toLowerCase())return 0;
+  const time=Date.now();
+  const payload=JSON.stringify({title:incident.title,body:incident.body,url:'/admin',tag:'kagopita-admin-'+incident.id});
+  return db.prepare(`INSERT INTO push_queue(device_id,admin_payload,created_at,next_at)
+    SELECT d.id,?,?,? FROM push_devices d JOIN sessions s ON s.token_hash=d.session_hash
+    WHERE d.user_id=? AND s.user_id=d.user_id AND s.expires_at>?`).run(payload,time,time,userId,time).changes;
+}
 let running = false;
 async function flush() {
   if (running) return;
@@ -78,18 +88,25 @@ async function flush() {
         WHERE d.id = ? AND d.session_hash = ? AND d.user_id = ? AND s.user_id = d.user_id AND s.expires_at > ?`)
         .get(job.device_id, job.session_hash, job.user_id, Date.now());
       if (!live) continue;
-      // Recheck membership immediately before sending. Never deliver to a former member.
       const entry = job.notification_id && db.prepare(`SELECT n.* FROM notifications n
         JOIN channel_members m ON m.channel_id = n.channel_id AND m.user_id = n.user_id
         WHERE n.id = ? AND n.user_id = ?`).get(job.notification_id, job.user_id);
       if (job.notification_id && !entry) { db.prepare('DELETE FROM push_queue WHERE id = ?').run(job.id); continue; }
-      const payload = JSON.stringify({
+      let adminPayload;
+      if(job.admin_payload) {
+        const owner=db.prepare('SELECT email,email_verified FROM users WHERE id=?').get(job.user_id);
+        if(job.user_id!==process.env.KAGOPITA_ADMIN_USER_ID||!owner?.email_verified||owner.email?.toLowerCase()!==process.env.KAGOPITA_ADMIN_EMAIL?.toLowerCase()){
+          db.prepare('DELETE FROM push_queue WHERE id=?').run(job.id);continue;
+        }
+        try{adminPayload=JSON.parse(job.admin_payload);}catch{db.prepare('DELETE FROM push_queue WHERE id=?').run(job.id);continue;}
+      }
+      const payload = JSON.stringify(adminPayload || {
         ...notificationText.format(entry || null, job.language),
         tag: 'kagopita-' + (job.notification_id || 'test-' + job.id)
       });
       try {
         await webpush.sendNotification({ endpoint: job.endpoint, keys: { p256dh: job.p256dh, auth: job.auth } },
-          payload, { TTL: 3600, urgency: 'normal', timeout: 8000 });
+          payload, { TTL: 3600, urgency: adminPayload ? 'high' : 'normal', timeout: 8000 });
         db.prepare('DELETE FROM push_queue WHERE id = ?').run(job.id);
       } catch (error) {
         if ([404, 410].includes(error.statusCode)) db.prepare('DELETE FROM push_devices WHERE id = ?').run(job.device_id);
@@ -97,7 +114,6 @@ async function flush() {
           db.prepare('DELETE FROM push_queue WHERE id = ?').run(job.id);
         else db.prepare('UPDATE push_queue SET attempts = attempts + 1, next_at = ? WHERE id = ?')
           .run(Date.now() + Math.min(3600000, 30000 * 2 ** job.attempts), job.id);
-        // Do not log subscription endpoints, credentials, or payloads.
         console.warn('Web Push delivery failed:', Number(error.statusCode) || 'network');
       }
     }
@@ -108,7 +124,7 @@ function routes(sessionToken) {
   router.use((req, res, next) => {
     res.set('Cache-Control', 'no-store');
     const origin = req.headers.origin;
-    if (req.method !== 'GET' && origin && origin !== new URL(process.env.PUBLIC_URL || 'http://' + req.get('host')).origin)
+    if (req.method !== 'GET' && origin && origin !== new URL(process.env.PUBLIC_URL || 'http://' + req.get('host')).origin && origin !== `${req.secure?'https':'http'}://${req.get('host')}`)
       return res.status(403).json({ error: 'Invalid origin.' });
     req.pushSession = require('./database').sessionHash(sessionToken(req) || '');
     next();
@@ -130,7 +146,6 @@ function routes(sessionToken) {
       return res.status(409).json({ error: '端末の通知登録を解除して、再度お試しください。' });
     if ((!existing || existing.user_id !== req.user.id) && db.prepare('SELECT COUNT(*) AS n FROM push_devices WHERE user_id = ?').get(req.user.id).n >= 30)
       return res.status(429).json({ error: '登録できる端末数の上限です。' });
-    // Drop former-account jobs before explicitly transferring a browser subscription.
     if (existing && (existing.user_id !== req.user.id || existing.session_hash !== req.pushSession))
       db.prepare('DELETE FROM push_devices WHERE id = ?').run(existing.id);
     db.prepare(`INSERT INTO push_devices (endpoint, p256dh, auth, session_hash, user_id, created_at)
@@ -150,7 +165,7 @@ function routes(sessionToken) {
       'SELECT id FROM push_devices WHERE endpoint = ? AND user_id = ? AND session_hash = ?'
     ).get(req.body.endpoint, req.user.id, req.pushSession);
     if (!device) return res.status(404).json({ error: 'この端末の通知を有効にしてください。' });
-    const recent = db.prepare('SELECT MAX(created_at) AS time FROM push_queue WHERE device_id = ? AND notification_id IS NULL').get(device.id);
+    const recent = db.prepare('SELECT MAX(created_at) AS time FROM push_queue WHERE device_id = ? AND notification_id IS NULL AND admin_payload IS NULL').get(device.id);
     const previous = testTimes.get(device.id) || recent.time || 0;
     if (Date.now() - previous < 60000) return res.status(429).json({ error: '1分後にもう一度お試しください。' });
     const time = Date.now(); testTimes.set(device.id, time);
@@ -165,4 +180,4 @@ let timer;
 function start() {
   if (!timer) { timer = setInterval(() => flush().catch(() => console.error('Web Push queue processing failed.')), 2000); timer.unref(); }
 }
-module.exports = { enqueue, flush, start, routes, validSubscription, publicKey: keys.publicKey };
+module.exports = { enqueue, enqueueAdminAlert, flush, start, routes, validSubscription, publicKey: keys.publicKey };
