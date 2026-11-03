@@ -1,0 +1,15 @@
+<!doctype html>
+<html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>カゴピタ 管理</title><link rel="stylesheet" href="/css/admin.css"><script src="/js/admin.js" defer></script></head>
+<body><header><a href="/">カゴピタ</a><span class="eyebrow">OWNER CONSOLE</span><button id="logout" hidden>管理セッションを終了</button></header>
+<main>
+<section id="login" class="login-card"><span class="eyebrow">PRIVATE ACCESS</span><h1>管理者ログイン</h1><p>所有者の確認済みアカウントだけがアクセスできます。管理セッションは15分間有効です。</p>
+<form id="loginForm"><label for="email">メールアドレス</label><input id="email" type="email" autocomplete="username" required><label for="password">パスワード</label><input id="password" type="password" autocomplete="current-password" required maxlength="128"><button type="submit" id="loginButton">安全にログイン</button></form></section>
+<p id="message" role="status" aria-live="polite"></p>
+<div id="dashboard" hidden>
+<section class="page-heading"><div><span class="eyebrow">OPERATIONS</span><h1>管理ダッシュボード</h1><p id="updated">接続中…</p></div><div class="toolbar"><button id="refresh">更新</button><button id="testAlert">通知をテスト</button></div></section>
+<section class="metrics" aria-label="稼働状況"><article><span>システム</span><strong id="health">—</strong></article><article><span>稼働時間</span><strong id="uptime">—</strong></article><article><span>APIリクエスト</span><strong id="requests">—</strong></article><article><span>サーバーエラー</span><strong id="errors">—</strong></article></section>
+<section class="two-columns"><article class="card"><h2>リソース</h2><dl id="resources"></dl></article><article class="card"><h2>通知</h2><p>重大な障害は所有者のメールと登録済みプッシュ端末へ送信します。同じ障害の再通知は10分間抑制されます。</p><dl id="delivery"></dl><p class="muted">アプリ停止は独立したヘルスチェックで監視します。端末で通知の許可が必要です。</p></article></section>
+<section class="card"><div class="section-heading"><h2>重大なインシデント</h2><span id="incidentCount"></span></div><div id="incidents"></div></section>
+<section class="card"><div class="section-heading"><h2>ログイン監視</h2><span id="loginTotals"></span></div><p class="muted">直近60件・最大7日間。パスワード、トークン、個人情報は記録しません。</p><div class="table-scroll"><table><thead><tr><th>日時</th><th>結果</th><th>応答</th></tr></thead><tbody id="loginHistory"></tbody></table></div></section>
+<section class="card"><h2>リリースと保護</h2><dl id="release"></dl><p>アクセス制御、30分で失効する再設定リンク、入力検証、CORS、レート制限、インデックス、ログと通知をサーバー側で適用します。</p><p class="muted">ロールバックは保存済みのリリースへ切り替える運用です。管理画面から任意のコマンドは実行できません。</p></section>
+</div></main><footer>PRIVATE · カゴピタ管理</footer></body></html>

@@ -1,0 +1,63 @@
+const assert=require('node:assert/strict');
+const {spawn}=require('node:child_process');
+const fs=require('node:fs'),os=require('node:os'),path=require('node:path'),net=require('node:net'),crypto=require('node:crypto');
+const {DatabaseSync}=require('node:sqlite');
+const terms=require('../terms.json');
+(async()=>{
+ const directory=fs.mkdtempSync(path.join(os.tmpdir(),'kagopita-admin-access-'));
+ const socket=net.createServer();await new Promise(r=>socket.listen(0,'127.0.0.1',r));const port=socket.address().port;await new Promise(r=>socket.close(r));
+ const base='http://127.0.0.1:'+port;let child,db,ownerId='not-configured';
+ const password='Fixture-Password-8362';
+  const preload=path.join(directory,'mail-stub.cjs');
+ const clockFile=path.join(directory,'clock');fs.writeFileSync(clockFile,'0');
+ fs.writeFileSync(preload,`const fs=require('fs'),RealDate=Date;const offset=()=>Number(fs.readFileSync(${JSON.stringify(clockFile)},'utf8'));global.Date=class extends RealDate{constructor(...args){super(...(args.length?args:[RealDate.now()+offset()]));}static now(){return RealDate.now()+offset();}};require(${JSON.stringify(require.resolve('nodemailer'))}).createTransport=()=>({sendMail:async mail=>{fs.appendFileSync(${JSON.stringify(path.join(directory,'mail.jsonl'))},JSON.stringify(mail)+'\\n');return {};}});`);
+ const start=async()=>{
+  child=spawn(process.execPath,['-r',preload,'server.js'],{cwd:path.join(__dirname,'..'),env:{...process.env,PORT:String(port),PUBLIC_URL:base,KAGOPITA_DATA_DIR:directory,KAGOPITA_ADMIN_USER_ID:ownerId,KAGOPITA_ADMIN_EMAIL:'owner@example.test',SMTP_USER:'mail@example.test',SMTP_PASS:'fixture'},stdio:'ignore'});
+  for(let i=0;i<100;i++){try{if((await fetch(base+'/healthz')).ok)return;}catch{}await new Promise(r=>setTimeout(r,50));}throw Error('Startup failed');
+ };
+ const stop=async()=>{if(child&&child.exitCode===null){child.kill();await new Promise(r=>child.once('exit',r));}};
+ const request=async(cookie,url,method='GET',body,expected=200,headers={})=>{
+  const r=await fetch(base+url,{method,headers:{Cookie:cookie||'','Content-Type':'application/json','X-Admin-Request':'1',...headers},body:body===undefined?undefined:JSON.stringify(body)});
+  const data=await r.json().catch(()=>({}));assert.equal(r.status,expected,url+' '+JSON.stringify(data));
+  return {data,headers:r.headers,cookie:r.headers.get('set-cookie')?.split(';')[0]};
+ };
+ try{
+  await start();db=new DatabaseSync(path.join(directory,'kagopita.sqlite'));
+  const account=async username=>request('','/api/account','POST',{username,termsAccepted:true,termsVersion:terms.version},201);
+  const owner=await account('Owner'),other=await account('List admin');ownerId=owner.data.user.id;
+  const salt=crypto.randomBytes(32).toString('hex'),hash=crypto.scryptSync(password,Buffer.from(salt,'hex'),64).toString('hex');
+  for(const [user,email]of [[owner,'owner@example.test'],[other,'other@example.test']])db.prepare('UPDATE users SET email=?,email_verified=1,password_salt=?,password_hash=? WHERE id=?').run(email,salt,hash,user.data.user.id);
+  await stop();await start();
+  const shell=await fetch(base+'/admin');assert.equal(shell.status,200);assert.equal(shell.headers.get('cache-control'),'no-store');assert.match(shell.headers.get('content-security-policy'),/frame-ancestors 'none'/);assert.ok(!(await shell.text()).includes('owner@example.test'));
+  await request('','/api/admin/snapshot','GET',undefined,401);
+  await request(other.cookie,'/api/admin/session','POST',{password},403);
+  await request(other.cookie,'/api/admin/snapshot','GET',undefined,403);
+  assert.equal((await request(other.cookie,'/api/me')).data.user.isSiteAdmin,false);
+  assert.equal((await request(owner.cookie,'/api/me')).data.user.isSiteAdmin,true);
+  await request(owner.cookie,'/api/admin/snapshot','GET',undefined,401);
+  await request(owner.cookie,'/api/admin/session','POST',{password:'wrong'},401);
+  const step=await request(owner.cookie,'/api/admin/session','POST',{password});
+  assert.match(step.headers.get('set-cookie'),/HttpOnly/);assert.match(step.headers.get('set-cookie'),/SameSite=Strict/);assert.match(step.headers.get('set-cookie'),/Max-Age=900/);
+  const cookie=owner.cookie+'; '+step.cookie;
+  const snap=await request(cookie,'/api/admin/snapshot');assert.equal(snap.data.health.status,'ok');assert.equal(snap.headers.get('cache-control'),'no-store');assert.ok(!JSON.stringify(snap.data).includes(password));
+  await request(other.cookie+'; '+step.cookie,'/api/admin/snapshot','GET',undefined,403);
+  const second=await request('','/api/login','POST',{email:'owner@example.test',password});
+  await request(second.cookie+'; '+step.cookie,'/api/admin/snapshot','GET',undefined,401);
+  await request(cookie,'/api/admin/test-alert','POST',{},403,{'Origin':'https://evil.example'});
+  const test=await request(cookie,'/api/admin/test-alert','POST',{});assert.equal(test.data.email,'sent');
+  const lines=fs.readFileSync(path.join(directory,'mail.jsonl'),'utf8').trim().split(/\n/).map(JSON.parse);assert.equal(lines.at(-1).to,'owner@example.test');assert.ok(!JSON.stringify(lines).includes(password));
+  await request(cookie,'/api/admin/test-alert','POST',{},429);
+  db.prepare('UPDATE users SET email_verified=0 WHERE id=?').run(ownerId);await request(cookie,'/api/admin/snapshot','GET',undefined,403);
+  db.prepare('UPDATE users SET email_verified=1 WHERE id=?').run(ownerId);
+  await request(cookie,'/api/admin/session','DELETE');await request(cookie,'/api/admin/snapshot','GET',undefined,401);
+  const grant=await request(owner.cookie,'/api/admin/session','POST',{password});
+  db.prepare('DELETE FROM sessions WHERE token_hash=?').run(crypto.createHash('sha256').update(owner.cookie.split('=')[1]).digest('hex'));
+  await request(owner.cookie+'; '+grant.cookie,'/api/admin/snapshot','GET',undefined,401);
+  const expiring=await request(second.cookie,'/api/admin/session','POST',{password});
+  fs.writeFileSync(clockFile,String(15*60000+1));
+  await request(second.cookie+'; '+expiring.cookie,'/api/admin/snapshot','GET',undefined,401);
+  for(const file of ['/.env','/.git/config','/database.js','/admin.js','/private/admin.html','/D:/Kagopita-data/kagopita.sqlite'])assert.equal((await fetch(base+file)).status,404,file);
+  assert.deepEqual((await request('','/healthz')).data,{status:'ok'});
+  console.log('PASS: owner-only step-up; regular/list-admin/unverified denial; cross-session binding; logout/revocation; strict cookie/CSP/no-store; safe shell; owner-only test email; CSRF; exposed-file probes; minimal health endpoint.');
+ }finally{await stop();db?.close();fs.rmSync(directory,{recursive:true,force:true});}
+})().catch(error=>{console.error(error);process.exitCode=1;});
