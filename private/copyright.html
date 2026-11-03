@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="robots" content="index,follow"><title>著作権・削除申立て / Copyright — カゴピタ</title>
+  <link rel="stylesheet" href="/css/legal.css"><script src="/js/copyright.js" defer></script>
+</head>
+<body>
+  <main>
+    <a href="/">← カゴピタ / Back to Kagopita</a>
+    <h1>著作権侵害の申立て / Copyright takedown</h1>
+    <p class="notice">利用者は共有リストの文字・メモやプロフィール画像を投稿できます。権利を侵害すると思われる内容は、下のフォームから申告できます。 / Users can post shared-list text, notes, and profile images. Use this form to report material you believe infringes copyright.</p>
+    <h2>指定代理人 / Designated agent</h2>
+    <dl><dt>氏名 / Name</dt><dd>__DMCA_AGENT_NAME__</dd><dt>メール / Email</dt><dd>__DMCA_AGENT_EMAIL__</dd><dt>郵送先 / Mailing address</dt><dd>__DMCA_AGENT_ADDRESS__</dd></dl>
+    <p>指定代理人の登録が未完了の場合は、copyright.govで登録してください。登録料は現在6ドルです。氏名、メール、郵送先を登録内容と一致させ、このページも更新してください。</p>
+    <p>If the agent is not registered yet, register at copyright.gov (currently $6), then publish matching agent name, email, and mailing address here.</p>
+    <p>指定代理人の連絡先を設定するまでは、フォームの通知は <code>KAGOPITA_ADMIN_EMAIL</code> に送信されます。指定代理人の氏名・メール・郵送先を確認できるまでは、ページの公開前チェックを完了しないでください。</p>
+    <h2>申立てに必要な情報 / Information required</h2>
+    <p>対象の共有リスト名と商品・メモ・プロフィール、侵害箇所の説明、著作物の説明、申立人の連絡先、誠実な信念に基づく申立てであること、情報が正確であることの宣誓、電子署名を記入してください。必要情報の欠落や虚偽の申告は処理できない場合があります。</p>
+    <form id="copyrightForm" class="legal-form">
+      <label>申立人氏名 / Your name<input name="name" required maxlength="160" autocomplete="name"></label>
+      <label>連絡先メール / Contact email<input name="email" type="email" required maxlength="254" autocomplete="email"></label>
+      <label>著作物の説明 / Description of copyrighted work<textarea name="work" required maxlength="4000" rows="3"></textarea></label>
+      <label>対象の場所（リスト名・項目名・画像など） / Location of reported content<textarea name="location" required maxlength="4000" rows="3"></textarea></label>
+      <label>侵害の説明 / Why you believe it infringes<textarea name="reason" required maxlength="4000" rows="3"></textarea></label>
+      <label class="check"><input name="goodFaith" type="checkbox" required>当該利用が権利者、その代理人、または法律により許可されていないと誠実に信じています。 / I have a good-faith belief the use is not authorized.</label>
+      <label class="check"><input name="accuracy" type="checkbox" required>申立ての情報は正確であり、偽証罪の対象となることを理解したうえで、権利者または代理人として申立てます。 / The information is accurate, under penalty of perjury, and I am authorized to act.</label>
+      <label>電子署名（氏名） / Electronic signature<input name="signature" required maxlength="160"></label>
+      <p class="notice">申立ての連絡先・内容は、対応と法令遵守のため運営者および必要に応じて対象投稿者に共有されることがあります。 / The notice may be shared with the operator and, as legally required, the affected user.</p>
+      <p id="copyrightMessage" role="status" aria-live="polite"></p>
+      <button type="submit">削除申立てを送信 / Submit notice</button>
+    </form>
+    <h2>削除と再侵害 / Removal and repeat infringement</h2>
+    <p>有効な申立てを確認後、運営者は対象コンテンツを一時的または恒久的に削除し、関係者へ連絡します。反復または重大な権利侵害を行うアカウントは、停止または永久利用禁止となる場合があります。不服申立て・異議申立ては、指定代理人へ連絡してください。</p>
+    <p>After reviewing a valid notice, the operator may remove the content and notify affected parties. Accounts that repeatedly or seriously infringe rights may be suspended or permanently banned. Send counter-notices or appeals to the designated agent.</p>
+    <p><a href="/privacy">プライバシー / Privacy</a></p>
+  </main>
+</body>
+</html>

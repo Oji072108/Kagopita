@@ -30,6 +30,9 @@ db.exec(`
     password_hash TEXT,
     email_verified INTEGER NOT NULL DEFAULT 0,
     avatar_data TEXT,
+    age_confirmed_at TEXT,
+    suspended_at TEXT,
+    suspension_reason TEXT,
     created_at TEXT NOT NULL
   );
   CREATE TABLE IF NOT EXISTS sessions (
@@ -147,8 +150,11 @@ if (!userColumns.has('email_verified')) {
   db.exec('ALTER TABLE users ADD COLUMN email_verified INTEGER NOT NULL DEFAULT 0');
 }
 if (!userColumns.has('avatar_data')) db.exec('ALTER TABLE users ADD COLUMN avatar_data TEXT');
-for (const column of ['terms_accepted_version', 'terms_accepted_at', 'terms_seen_version']) {
-  if (!userColumns.has(column)) db.exec(`ALTER TABLE users ADD COLUMN ${column} TEXT`);
+for (const [column, definition] of Object.entries({
+  age_confirmed_at: 'TEXT', suspended_at: 'TEXT', suspension_reason: 'TEXT',
+  terms_accepted_version: 'TEXT', terms_accepted_at: 'TEXT', terms_seen_version: 'TEXT'
+})) {
+  if (!userColumns.has(column)) db.exec(`ALTER TABLE users ADD COLUMN ${column} ${definition}`);
 }
 db.exec(`
   CREATE UNIQUE INDEX IF NOT EXISTS users_email_unique
@@ -345,11 +351,13 @@ function createSession(userId) {
 function getSession(token) {
   if (!token || typeof token !== 'string' || !/^[a-f0-9]{64}$/i.test(token)) return null;
   const row = db.prepare(`
-    SELECT users.id, users.username, users.email, users.email_verified, sessions.expires_at
+    SELECT users.id, users.username, users.email, users.email_verified,
+      users.age_confirmed_at, users.suspended_at, sessions.expires_at
     FROM sessions JOIN users ON users.id = sessions.user_id
     WHERE sessions.token_hash = ?
   `).get(sessionHash(token));
   if (!row) return null;
+  if (row.suspended_at) return null;
   if (row.expires_at <= Date.now()) {
     db.prepare('DELETE FROM sessions WHERE token_hash = ?').run(sessionHash(token));
     return null;
@@ -358,7 +366,8 @@ function getSession(token) {
     id: row.id,
     username: row.username,
     email: row.email,
-    emailVerified: Boolean(row.email_verified)
+    emailVerified: Boolean(row.email_verified),
+    ageConfirmedAt: row.age_confirmed_at
   };
 }
 

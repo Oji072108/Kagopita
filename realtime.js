@@ -48,4 +48,13 @@ function broadcast(event = { type: 'update' }) {
   }
 }
 
-module.exports = { subscribe, broadcast };
+function disconnectUser(userId) {
+  const userClients = clientsByUser.get(userId);
+  if (!userClients) return;
+  for (const client of [...userClients]) {
+    client.unsubscribe();
+    client.response.end();
+  }
+}
+
+module.exports = { subscribe, broadcast, disconnectUser };

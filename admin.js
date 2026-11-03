@@ -8,7 +8,7 @@ const { rateLimit } = require('express-rate-limit');
 const ADMIN_TTL = 15 * 60 * 1000;
 const ALERT_COOLDOWN = 10 * 60 * 1000;
 
-function createAdminMonitor({db, dataDirectory, ownerId, ownerEmail, mailer, verifyPassword, sessionToken, pushAlert}) {
+function createAdminMonitor({db, dataDirectory, ownerId, ownerEmail, mailer, verifyPassword, sessionToken, pushAlert, broadcast=()=>{}, disconnectUser=()=>{}}) {
   const configured = Boolean(ownerId && ownerEmail);
   const statePath = path.join(dataDirectory, 'admin-monitor.json');
   const state = {incidents:[], logins:[]};
@@ -162,6 +162,62 @@ function createAdminMonitor({db, dataDirectory, ownerId, ownerEmail, mailer, ver
     });
     router.use((req,res,next)=>hasGrant(req)?next():res.status(401).json({code:'ADMIN_REAUTH_REQUIRED',error:'管理者パスワードで再認証してください。'}));
     router.get('/snapshot',(req,res)=>res.json({...snapshot(),expiresAt:req.adminExpiresAt}));
+    router.get('/copyright/items',(req,res)=>{
+      const query=String(req.query.q||'').trim().slice(0,100);
+      if(!query)return res.json({items:[]});
+      const match=`%${query}%`;
+      const items=db.prepare(`SELECT i.id,i.channel_id AS channelId,c.name AS channelName,i.category,i.name,i.notes,i.added_by AS addedBy,i.deleted_at AS deletedAt
+        FROM shopping_items i JOIN channels c ON c.id=i.channel_id
+        WHERE CAST(i.id AS TEXT)=? OR i.name LIKE ? OR i.notes LIKE ? OR c.name LIKE ?
+        ORDER BY i.id DESC LIMIT 30`).all(query,match,match,match);
+      res.json({items});
+    });
+    router.delete('/copyright/items/:id',(req,res)=>{
+      if(!/^\d+$/.test(req.params.id))return res.sendStatus(400);
+      const item=db.prepare('SELECT id,channel_id,name FROM shopping_items WHERE id=?').get(Number(req.params.id));
+      if(!item)return res.sendStatus(404);
+      db.prepare('DELETE FROM shopping_items WHERE id=?').run(item.id);
+      db.prepare(`INSERT INTO activity_log(channel_id,user_id,username,action,item,created_at) VALUES(?,NULL,?,'copyright-removed','',?)`)
+        .run(item.channel_id,'カゴピタ運営者',new Date().toISOString());
+      broadcast({type:'update',channelId:item.channel_id});
+      res.json({removed:true});
+    });
+    router.get('/copyright/users',(req,res)=>{
+      const query=String(req.query.q||'').trim().slice(0,100);
+      if(!query)return res.json({users:[]});
+      const match=`%${query}%`;
+      const users=db.prepare(`SELECT id,username,email,suspended_at AS suspendedAt,suspension_reason AS suspensionReason,
+        (avatar_data IS NOT NULL) AS hasAvatar FROM users WHERE id LIKE ? OR username LIKE ? OR email LIKE ?
+        ORDER BY created_at DESC LIMIT 30`).all(match,match,match);
+      res.json({users});
+    });
+    router.post('/copyright/users/:id/suspend',(req,res)=>{
+      const target=db.prepare('SELECT id FROM users WHERE id=?').get(req.params.id);
+      const reason=typeof req.body?.reason==='string'?req.body.reason.trim().slice(0,500):'';
+      if(!target)return res.sendStatus(404);
+      if(target.id===ownerId)return res.status(400).json({error:'サイト所有者アカウントは停止できません。'});
+      if(!reason)return res.status(400).json({error:'停止理由を入力してください。'});
+      db.prepare('UPDATE users SET suspended_at=?,suspension_reason=? WHERE id=?')
+        .run(new Date().toISOString(),reason,target.id);
+      db.prepare('DELETE FROM sessions WHERE user_id=?').run(target.id);
+      disconnectUser(target.id);
+      res.json({suspended:true});
+    });
+    router.delete('/copyright/users/:id/suspension',(req,res)=>{
+      const target=db.prepare('SELECT id FROM users WHERE id=?').get(req.params.id);
+      if(!target)return res.sendStatus(404);
+      if(target.id===ownerId)return res.status(400).json({error:'サイト所有者アカウントは変更できません。'});
+      db.prepare('UPDATE users SET suspended_at=NULL,suspension_reason=NULL WHERE id=?').run(target.id);
+      res.json({suspended:false});
+    });
+    router.delete('/copyright/users/:id/avatar',(req,res)=>{
+      const target=db.prepare('SELECT id FROM users WHERE id=?').get(req.params.id);
+      if(!target)return res.sendStatus(404);
+      db.prepare('UPDATE users SET avatar_data=NULL WHERE id=?').run(target.id);
+      for(const row of db.prepare('SELECT channel_id FROM channel_members WHERE user_id=?').all(target.id))
+        broadcast({type:'update',channelId:row.channel_id});
+      res.json({removed:true});
+    });
     router.delete('/session',(req,res)=>{grants.delete(hash(cookie(req)||''));res.clearCookie('kagopita_admin',{path:'/api/admin',httpOnly:true,sameSite:'strict'});res.json({ok:true});});
     router.post('/test-alert',async(req,res)=>{
       const now=Date.now();if(now-(router.lastTest||0)<60000)return res.status(429).json({error:'通知テストは1分後に再実行できます。'});router.lastTest=now;
