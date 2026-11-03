@@ -1,10 +1,26 @@
 const clients = new Set();
+const clientsByUser = new Map();
 const { db } = require('./database');
 
 function subscribe(response, userId) {
-  const client = { response, userId };
+  let userClients = clientsByUser.get(userId);
+  if (userClients?.size >= 5) return null;
+  if (!userClients) {
+    userClients = new Set();
+    clientsByUser.set(userId, userClients);
+  }
+  const client = { response, userId, userClients };
   clients.add(client);
-  return () => clients.delete(client);
+  userClients.add(client);
+  let active = true;
+  client.unsubscribe = () => {
+    if (!active) return;
+    active = false;
+    clients.delete(client);
+    userClients.delete(client);
+    if (userClients.size === 0) clientsByUser.delete(userId);
+  };
+  return client.unsubscribe;
 }
 
 function broadcast(event = { type: 'update' }) {
@@ -16,14 +32,14 @@ function broadcast(event = { type: 'update' }) {
 
   for (const client of clients) {
     if (client.response.destroyed || client.response.writableEnded) {
-      clients.delete(client);
+      client.unsubscribe();
       continue;
     }
 
     if (event.recipientId && event.recipientId !== client.userId) continue;
     if (recipientIds && !recipientIds.has(client.userId)) continue;
     if (client.response.writableLength > 1024 * 1024) {
-      clients.delete(client);
+      client.unsubscribe();
       client.response.end();
       continue;
     }

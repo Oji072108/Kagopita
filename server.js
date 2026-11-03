@@ -52,8 +52,8 @@ app.use(express.json({
 app.use(express.urlencoded({ extended: false, limit: '100kb' }));
 const requestLimits = require('./request-limits').createRequestLimits(req => database.getSession(readSessionToken(req)));
 app.use('/api', (req, res, next) => {
-  if (!['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method)) return next();
-  requestLimits.writes(req, res, next);
+  if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method)) return requestLimits.writes(req, res, next);
+  requestLimits.reads(req, res, next);
 });
 app.patch('/api/channels/:channelId/items/:id/toggle', requestLimits.toggles);
 app.post(['/api/resend-verification', '/api/password-reset/request'],
@@ -952,8 +952,8 @@ app.post('/api/channels/:channelId/invites', attachChannel, requireChannelOwner,
   do {
     code = database.generateInviteCode();
   } while (database.getInvite(code));
-  db.prepare('INSERT INTO invites (code, channel_id, is_bootstrap, created_at) VALUES (?, ?, 0, ?)')
-    .run(code, req.channel.id, database.now());
+  db.prepare('INSERT INTO invites (code, channel_id, is_bootstrap, created_at, expires_at) VALUES (?, ?, 0, ?, ?)')
+    .run(code, req.channel.id, database.now(), Date.now() + database.INVITE_TTL_MS);
   res.set('Cache-Control', 'no-store');
   res.json({ inviteCode: code });
 });
@@ -964,8 +964,8 @@ app.post('/api/channels/:channelId/email-invites', attachChannel, requireChannel
   if (emailInviteRateLimited(req.user.id)) return res.status(429).json({ error: '招待メールの送信回数が上限に達しました。しばらくしてからお試しください。' });
   let code;
   do { code = database.generateInviteCode(); } while (database.getInvite(code));
-  db.prepare('INSERT INTO invites (code, channel_id, is_bootstrap, created_at) VALUES (?, ?, 0, ?)')
-    .run(code, req.channel.id, database.now());
+  db.prepare('INSERT INTO invites (code, channel_id, is_bootstrap, created_at, expires_at) VALUES (?, ?, 0, ?, ?)')
+    .run(code, req.channel.id, database.now(), Date.now() + database.INVITE_TTL_MS);
   recordEmailInvite(req.user.id);
   try {
     await sendListInviteEmail(email, code, req.channel.name, req.user.username);
@@ -1112,6 +1112,11 @@ app.patch('/api/channels/:channelId/archive', attachChannel, requireChannelOwner
 });
 
 app.get('/api/events', (req, res) => {
+  const removeClient = subscribe(res, req.user.id);
+  if (!removeClient) {
+    return res.set('Retry-After', '60').set('Cache-Control', 'no-store')
+      .status(429).json({ error: 'Too many active event streams.' });
+  }
   res.set({
     'Content-Type': 'text/event-stream',
     'Cache-Control': 'no-cache, no-transform',
@@ -1120,7 +1125,6 @@ app.get('/api/events', (req, res) => {
   });
   res.flushHeaders();
   res.write('retry: 3000\n\n');
-  const removeClient = subscribe(res, req.user.id);
   const heartbeat = setInterval(() => res.write(': keep-alive\n\n'), 25000);
   res.on('close', () => {
     clearInterval(heartbeat);

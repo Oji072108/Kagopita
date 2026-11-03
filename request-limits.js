@@ -19,6 +19,7 @@ function createRequestLimits(getUser) {
       });
     }
   });
+  const reads = limit('api-reads', 60_000, 120);
   const writes = limit('actions', 10_000, 60);
   const toggles = limit('checks', 5_000, 12);
   const emailActor = limit('email-cooldown', 30_000, 1);
@@ -28,7 +29,7 @@ function createRequestLimits(getUser) {
     const email = String(req.body?.email || '').trim().toLowerCase();
     return email ? require('node:crypto').createHash('sha256').update(email).digest('hex') : actor(req);
   });
-  return { writes, toggles, emailActor, emailVolume, emailRecipient };
+  return { reads, writes, toggles, emailActor, emailVolume, emailRecipient };
 }
 
 module.exports = { createRequestLimits };
