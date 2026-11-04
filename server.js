@@ -7,7 +7,7 @@ const path = require('path');
 const fs = require('fs');
 const { promisify } = require('util');
 const nodemailer = require('nodemailer');
-const { broadcast, subscribe } = require('./realtime');
+const { broadcast, subscribe, disconnectUser } = require('./realtime');
 const database = require('./database');
 const { createChannel, db } = database;
 const scrypt = promisify(crypto.scrypt);
@@ -38,7 +38,9 @@ const adminMonitor = require('./admin').createAdminMonitor({
   db, dataDirectory:path.resolve(process.env.KAGOPITA_DATA_DIR || path.join(__dirname,'data')),
   ownerId:process.env.KAGOPITA_ADMIN_USER_ID, ownerEmail:process.env.KAGOPITA_ADMIN_EMAIL,
   mailer:mailTransporter, verifyPassword, sessionToken:readSessionToken,
-  pushAlert:(userId,incident)=>require('./push').enqueueAdminAlert(userId,incident)
+  pushAlert:(userId,incident)=>require('./push').enqueueAdminAlert(userId,incident),
+  broadcast,
+  disconnectUser
 });
 app.locals.broadcast = broadcast;
 
@@ -52,8 +54,8 @@ app.use(express.json({
 app.use(express.urlencoded({ extended: false, limit: '100kb' }));
 const requestLimits = require('./request-limits').createRequestLimits(req => database.getSession(readSessionToken(req)));
 app.use('/api', (req, res, next) => {
-  if (!['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method)) return next();
-  requestLimits.writes(req, res, next);
+  if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method)) return requestLimits.writes(req, res, next);
+  requestLimits.reads(req, res, next);
 });
 app.patch('/api/channels/:channelId/items/:id/toggle', requestLimits.toggles);
 app.post(['/api/resend-verification', '/api/password-reset/request'],
@@ -61,12 +63,11 @@ requestLimits.emailActor, requestLimits.emailVolume, requestLimits.emailRecipien
 
 const APP_CSP = [
   "default-src 'self'",
-  "script-src 'self' https://pagead2.googlesyndication.com https://*.googlesyndication.com https://*.google.com https://*.doubleclick.net",
-  "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net",
-  "font-src 'self' https://fonts.gstatic.com https://cdn.jsdelivr.net data:",
-  "img-src 'self' data: blob: https://pagead2.googlesyndication.com https://*.googlesyndication.com https://*.google.com https://*.doubleclick.net",
-  "connect-src 'self' https://pagead2.googlesyndication.com https://*.googlesyndication.com https://*.google.com https://*.doubleclick.net",
-  "frame-src 'self' https://googleads.g.doubleclick.net https://*.googlesyndication.com",
+  "script-src 'self'",
+  "style-src 'self' 'unsafe-inline'",
+  "font-src 'self' data:",
+  "img-src 'self' data: blob:",
+  "connect-src 'self'",
   "frame-ancestors 'none'",
   "base-uri 'self'",
   "form-action 'self'",
@@ -129,8 +130,26 @@ app.get('/offline.html', (req, res) => {
   res.set('Content-Security-Policy', ERROR_CSP);
   res.sendFile(path.join(__dirname, 'public', 'offline.html'));
 });
+function serveLegalPage(res, filename, replacements) {
+  let html = fs.readFileSync(path.join(__dirname, 'private', filename), 'utf8');
+  for (const [marker, value] of Object.entries(replacements)) html = html.replaceAll(marker, escapeHtml(String(value || '未設定 / not configured')));
+  res.set({'Cache-Control':'no-store','Content-Security-Policy':APP_CSP,'X-Robots-Tag':'index, follow'}).type('html').send(html);
+}
+app.get('/privacy', (req, res) => {
+  serveLegalPage(res, 'privacy.html', {
+    '__PRIVACY_CONTACT__': process.env.PRIVACY_CONTACT_EMAIL || process.env.KAGOPITA_ADMIN_EMAIL
+  });
+});
+app.get('/copyright', (req, res) => {
+  serveLegalPage(res, 'copyright.html', {
+    '__DMCA_AGENT_NAME__': process.env.DMCA_AGENT_NAME,
+    '__DMCA_AGENT_EMAIL__': process.env.DMCA_AGENT_EMAIL || '未登録・未設定 / not registered or configured',
+    '__DMCA_AGENT_ADDRESS__': process.env.DMCA_AGENT_ADDRESS
+  });
+});
 app.get('/admin', (req,res)=>{
   const user=database.getSession(readSessionToken(req));
+  if(adminMonitor.isOwner(user) && !user.ageConfirmedAt) return res.redirect('/');
   if(!adminMonitor.isOwner(user)) {
     return res.status(404).set({'Cache-Control':'no-store','X-Robots-Tag':'noindex, nofollow',
       'Content-Security-Policy':ERROR_CSP}).sendFile(path.join(__dirname,'private','not-found.html'));
@@ -471,9 +490,74 @@ function requireChannelOwner(req, res, next) {
   next();
 }
 
+function requireAgeConfirmation(req, res, next) {
+  if (req.body?.ageConfirmed !== true) {
+    return res.status(403).json({
+      code: 'AGE_CONFIRMATION_REQUIRED',
+      error: 'このサービスは13歳未満の方は利用できません。13歳以上であることを確認してください。'
+    });
+  }
+  req.ageConfirmedAt = database.now();
+  next();
+}
+
+app.post('/api/copyright/notice', requestLimits.emailActor, requestLimits.emailVolume, requestLimits.emailRecipient, async (req, res) => {
+  const fields = ['name', 'email', 'work', 'location', 'reason', 'signature'];
+  const notice = Object.fromEntries(fields.map(field => [field,
+    typeof req.body?.[field] === 'string' ? req.body[field].replace(/[\r\n\x00-\x1f\x7f]+/g, ' ').trim() : ''
+  ]));
+  const maxLengths={name:160,email:254,work:4000,location:4000,reason:4000,signature:160};
+  if (fields.some(field => !notice[field] || notice[field].length > maxLengths[field]) ||
+      !isValidEmail(notice.email) || req.body?.goodFaith !== true || req.body?.accuracy !== true) {
+    return res.status(400).json({error:'必須項目、申立ての確認欄、メールアドレスを確認してください。'});
+  }
+  const recipient = process.env.DMCA_AGENT_EMAIL || process.env.KAGOPITA_ADMIN_EMAIL;
+  if (!mailTransporter || !recipient) {
+    return res.status(503).json({error:'指定代理人のメールまたはSMTPが設定されていません。運営者にお問い合わせください。'});
+  }
+  const text = [
+    '著作権侵害の申立て / Copyright takedown notice',
+    `申立人 / Name: ${notice.name}`,
+    `連絡先 / Email: ${notice.email}`,
+    `著作物 / Work: ${notice.work}`,
+    `対象場所 / Location: ${notice.location}`,
+    `侵害理由 / Reason: ${notice.reason}`,
+    `誠実な信念 / Good faith: ${req.body.goodFaith}`,
+    `情報の正確性 / Accuracy: ${req.body.accuracy}`,
+    `電子署名 / Signature: ${notice.signature}`
+  ].join('\n\n');
+  try {
+    await mailTransporter.sendMail({
+      from:process.env.SMTP_FROM || process.env.SMTP_USER,
+      to:recipient,
+      replyTo:notice.email,
+      subject:'カゴピタ：著作権侵害の申立て',
+      text
+    });
+    res.status(202).json({received:true});
+  } catch (error) {
+    console.error('Could not deliver copyright notice email.', error);
+    res.status(502).json({error:'申立てを配信できませんでした。時間をおいて再試行するか、指定代理人へ直接ご連絡ください。'});
+  }
+});
+
+app.post('/api/age-confirmation', (req, res) => {
+  const user = database.getSession(readSessionToken(req));
+  if (!user) return res.status(401).json({ error: 'ログインしてください。' });
+  if (req.body?.ageConfirmed !== true) {
+    return res.status(403).json({ code: 'AGE_RESTRICTED', error: 'このサービスは13歳未満の方は利用できません。' });
+  }
+  db.prepare('UPDATE users SET age_confirmed_at = ? WHERE id = ?').run(database.now(), user.id);
+  res.json({ ageConfirmed: true });
+});
+
 app.post('/api/session', (req, res, next) => {
-  if (database.getSession(readSessionToken(req))) return next();
-  return requireTermsAcceptance(req, res, next);
+  const existingUser = database.getSession(readSessionToken(req));
+  if (existingUser) {
+    req.existingUser = existingUser;
+    return requireAgeConfirmation(req, res, next);
+  }
+  return requireAgeConfirmation(req, res, () => requireTermsAcceptance(req, res, next));
 }, (req, res) => {
   const invite = database.getInvite(req.body?.invite);
   const username = typeof req.body?.username === 'string' ? req.body.username.trim() : '';
@@ -487,13 +571,16 @@ app.post('/api/session', (req, res, next) => {
     return res.status(400).json({ error: '名前は1〜30文字で入力してください。' });
   }
 
-  const existingUser = database.getSession(readSessionToken(req));
+  const existingUser = req.existingUser || database.getSession(readSessionToken(req));
+  if (existingUser && !existingUser.ageConfirmedAt) {
+    db.prepare('UPDATE users SET age_confirmed_at = ? WHERE id = ?').run(req.ageConfirmedAt, existingUser.id);
+  }
   const user = existingUser || { id: require('crypto').randomUUID(), username };
   let session = null;
   const join = () => database.transaction(() => {
     if (!existingUser) {
-      db.prepare('INSERT INTO users (id, username, created_at, terms_seen_version, terms_accepted_version, terms_accepted_at) VALUES (?, ?, ?, ?, ?, ?)')
-        .run(user.id, username, database.now(), req.acceptedTermsVersion, req.acceptedTermsVersion, database.now());
+      db.prepare('INSERT INTO users (id, username, created_at, age_confirmed_at, terms_seen_version, terms_accepted_version, terms_accepted_at) VALUES (?, ?, ?, ?, ?, ?, ?)')
+        .run(user.id, username, database.now(), req.ageConfirmedAt, req.acceptedTermsVersion, req.acceptedTermsVersion, database.now());
       session = database.createSession(user.id);
     }
 
@@ -532,15 +619,15 @@ app.post('/api/session', (req, res, next) => {
   });
 });
 
-app.post('/api/account', requireTermsAcceptance, (req, res) => {
+app.post('/api/account', requireAgeConfirmation, requireTermsAcceptance, (req, res) => {
   const username = typeof req.body?.username === 'string' ? req.body.username.trim() : '';
   if (!isValidUsername(username)) {
     return res.status(400).json({ error: '名前は1〜30文字で入力してください。' });
   }
   const userId = require('crypto').randomUUID();
   const createAccount = () => database.transaction(() => {
-    db.prepare('INSERT INTO users (id, username, created_at, terms_seen_version, terms_accepted_version, terms_accepted_at) VALUES (?, ?, ?, ?, ?, ?)')
-      .run(userId, username, database.now(), req.acceptedTermsVersion, req.acceptedTermsVersion, database.now());
+    db.prepare('INSERT INTO users (id, username, created_at, age_confirmed_at, terms_seen_version, terms_accepted_version, terms_accepted_at) VALUES (?, ?, ?, ?, ?, ?, ?)')
+      .run(userId, username, database.now(), req.ageConfirmedAt, req.acceptedTermsVersion, req.acceptedTermsVersion, database.now());
     return database.createSession(userId);
   });
   const session = createAccount();
@@ -548,7 +635,7 @@ app.post('/api/account', requireTermsAcceptance, (req, res) => {
   res.status(201).json({ user: { id: userId, username } });
 });
 
-app.post('/api/register', requireTermsAcceptance, requestLimits.emailActor, requestLimits.emailVolume, requestLimits.emailRecipient, async (req, res, next) => {
+app.post('/api/register', requireAgeConfirmation, requireTermsAcceptance, requestLimits.emailActor, requestLimits.emailVolume, requestLimits.emailRecipient, async (req, res, next) => {
   const username = typeof req.body?.username === 'string' ? req.body.username.trim() : '';
   const email = normalizeEmail(req.body?.email);
   const password = req.body?.password;
@@ -574,9 +661,9 @@ app.post('/api/register', requireTermsAcceptance, requestLimits.emailActor, requ
     const { salt, hash } = await hashPassword(password);
     database.transaction(() => {
       db.prepare(`
-        INSERT INTO users (id, username, email, password_salt, password_hash, email_verified, created_at, terms_accepted_version, terms_accepted_at, terms_seen_version)
-        VALUES (?, ?, ?, ?, ?, 0, ?, ?, ?, ?)
-      `).run(userId, username, email, salt, hash, database.now(), req.acceptedTermsVersion, database.now(), req.acceptedTermsVersion);
+        INSERT INTO users (id, username, email, password_salt, password_hash, email_verified, created_at, age_confirmed_at, terms_accepted_version, terms_accepted_at, terms_seen_version)
+        VALUES (?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?)
+      `).run(userId, username, email, salt, hash, database.now(), req.ageConfirmedAt, req.acceptedTermsVersion, database.now(), req.acceptedTermsVersion);
       token = createVerificationToken(userId);
     });
     await sendVerificationEmail(email, token);
@@ -690,9 +777,13 @@ app.post('/api/login', async (req, res, next) => {
 
   try {
     const user = db.prepare(`
-      SELECT id, username, email, password_salt, password_hash, email_verified
+      SELECT id, username, email, password_salt, password_hash, email_verified, suspended_at
       FROM users WHERE email = ?
     `).get(email);
+    if (user?.suspended_at) {
+      recordFailedLogin(req);
+      return res.status(403).json({ error: 'このアカウントは利用停止中です。' });
+    }
     const valid = user?.password_salt && user.password_hash &&
       await verifyPassword(password, user.password_salt, user.password_hash);
     if (!valid) {
@@ -769,6 +860,9 @@ app.use('/api', (req, res, next) => {
   if (!user) {
     return res.status(401).json({ error: '招待リンクを開くか、もう一度ログインしてください。' });
   }
+  if (!user.ageConfirmedAt) {
+    return res.status(403).json({ code: 'AGE_CONFIRMATION_REQUIRED', error: '続行する前に年齢を確認してください。' });
+  }
   req.user = user;
   next();
 });
@@ -776,7 +870,7 @@ app.use('/api', (req, res, next) => {
 app.use('/api/push', require('./push').routes(readSessionToken));
 app.use('/api/admin',adminMonitor.routes());
 
-app.post('/api/account/credentials', requireTermsAcceptance, requestLimits.emailActor, requestLimits.emailVolume, requestLimits.emailRecipient, async (req, res, next) => {
+app.post('/api/account/credentials', requireAgeConfirmation, requireTermsAcceptance, requestLimits.emailActor, requestLimits.emailVolume, requestLimits.emailRecipient, async (req, res, next) => {
   const email = normalizeEmail(req.body?.email);
   const password = req.body?.password;
   if (!isValidEmail(email)) {
@@ -801,9 +895,9 @@ app.post('/api/account/credentials', requireTermsAcceptance, requestLimits.email
     database.transaction(() => {
       db.prepare(`
         UPDATE users
-        SET email = ?, password_salt = ?, password_hash = ?, email_verified = 0
+        SET email = ?, password_salt = ?, password_hash = ?, email_verified = 0, age_confirmed_at = ?
         WHERE id = ?
-      `).run(email, salt, hash, req.user.id);
+      `).run(email, salt, hash, req.ageConfirmedAt, req.user.id);
       token = createVerificationToken(req.user.id);
     });
     await sendVerificationEmail(email, token);
@@ -952,8 +1046,8 @@ app.post('/api/channels/:channelId/invites', attachChannel, requireChannelOwner,
   do {
     code = database.generateInviteCode();
   } while (database.getInvite(code));
-  db.prepare('INSERT INTO invites (code, channel_id, is_bootstrap, created_at) VALUES (?, ?, 0, ?)')
-    .run(code, req.channel.id, database.now());
+  db.prepare('INSERT INTO invites (code, channel_id, is_bootstrap, created_at, expires_at) VALUES (?, ?, 0, ?, ?)')
+    .run(code, req.channel.id, database.now(), Date.now() + database.INVITE_TTL_MS);
   res.set('Cache-Control', 'no-store');
   res.json({ inviteCode: code });
 });
@@ -964,8 +1058,8 @@ app.post('/api/channels/:channelId/email-invites', attachChannel, requireChannel
   if (emailInviteRateLimited(req.user.id)) return res.status(429).json({ error: '招待メールの送信回数が上限に達しました。しばらくしてからお試しください。' });
   let code;
   do { code = database.generateInviteCode(); } while (database.getInvite(code));
-  db.prepare('INSERT INTO invites (code, channel_id, is_bootstrap, created_at) VALUES (?, ?, 0, ?)')
-    .run(code, req.channel.id, database.now());
+  db.prepare('INSERT INTO invites (code, channel_id, is_bootstrap, created_at, expires_at) VALUES (?, ?, 0, ?, ?)')
+    .run(code, req.channel.id, database.now(), Date.now() + database.INVITE_TTL_MS);
   recordEmailInvite(req.user.id);
   try {
     await sendListInviteEmail(email, code, req.channel.name, req.user.username);
@@ -1112,6 +1206,11 @@ app.patch('/api/channels/:channelId/archive', attachChannel, requireChannelOwner
 });
 
 app.get('/api/events', (req, res) => {
+  const removeClient = subscribe(res, req.user.id);
+  if (!removeClient) {
+    return res.set('Retry-After', '60').set('Cache-Control', 'no-store')
+      .status(429).json({ error: 'Too many active event streams.' });
+  }
   res.set({
     'Content-Type': 'text/event-stream',
     'Cache-Control': 'no-cache, no-transform',
@@ -1120,7 +1219,6 @@ app.get('/api/events', (req, res) => {
   });
   res.flushHeaders();
   res.write('retry: 3000\n\n');
-  const removeClient = subscribe(res, req.user.id);
   const heartbeat = setInterval(() => res.write(': keep-alive\n\n'), 25000);
   res.on('close', () => {
     clearInterval(heartbeat);

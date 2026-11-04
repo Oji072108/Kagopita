@@ -10,6 +10,10 @@
 <section class="metrics" aria-label="稼働状況"><article><span>システム</span><strong id="health">—</strong></article><article><span>稼働時間</span><strong id="uptime">—</strong></article><article><span>APIリクエスト</span><strong id="requests">—</strong></article><article><span>サーバーエラー</span><strong id="errors">—</strong></article></section>
 <section class="two-columns"><article class="card"><h2>リソース</h2><dl id="resources"></dl></article><article class="card"><h2>通知</h2><p>重大な障害は所有者のメールと登録済みプッシュ端末へ送信します。同じ障害の再通知は10分間抑制されます。</p><dl id="delivery"></dl><p class="muted">アプリ停止は独立したヘルスチェックで監視します。端末で通知の許可が必要です。</p></article></section>
 <section class="card"><div class="section-heading"><h2>重大なインシデント</h2><span id="incidentCount"></span></div><div id="incidents"></div></section>
+<section class="card"><h2>著作権申立て・コンテンツ管理</h2><p>届いた申立ての内容からリスト項目やアカウントを検索できます。必要に応じて項目・プロフィール画像を削除し、反復侵害者のアカウントを停止してください。</p>
+<form id="contentSearchForm"><label for="contentSearch">リスト名・商品・メモ・項目ID</label><input id="contentSearch" maxlength="100" required><button id="contentSearchButton" type="submit">コンテンツを検索</button></form><div id="contentResults"></div>
+<form id="userSearchForm"><label for="userSearch">表示名・メール・ユーザーID</label><input id="userSearch" maxlength="100" required><label for="moderationReason">停止理由（アカウント停止時に必須）</label><input id="moderationReason" maxlength="500"><button id="userSearchButton" type="submit">アカウントを検索</button></form><div id="userResults"></div>
+</section>
 <section class="card"><div class="section-heading"><h2>ログイン監視</h2><span id="loginTotals"></span></div><p class="muted">直近60件・最大7日間。パスワード、トークン、個人情報は記録しません。</p><div class="table-scroll"><table><thead><tr><th>日時</th><th>結果</th><th>応答</th></tr></thead><tbody id="loginHistory"></tbody></table></div></section>
 <section class="card"><h2>リリースと保護</h2><dl id="release"></dl><p>アクセス制御、30分で失効する再設定リンク、入力検証、CORS、レート制限、インデックス、ログと通知をサーバー側で適用します。</p><p class="muted">ロールバックは保存済みのリリースへ切り替える運用です。管理画面から任意のコマンドは実行できません。</p></section>
 </div></main><footer>PRIVATE · カゴピタ管理</footer></body></html>

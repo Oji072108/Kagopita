@@ -36,6 +36,44 @@
   }
   async function refresh(){render(await api('/api/admin/snapshot'));}
   async function action(button,task){if(button.disabled)return;button.disabled=true;text('message','');try{await task();}catch(error){text('message',error.message);}finally{button.disabled=false;}}
+  $('contentSearchForm').onsubmit=event=>{event.preventDefault();action($('contentSearchButton'),async()=>{
+    const q=$('contentSearch').value.trim(),{items}=await api('/api/admin/copyright/items?q='+encodeURIComponent(q));
+    $('contentResults').replaceChildren(...items.map(item=>{
+      const div=document.createElement('article');div.className='incident';
+      const title=document.createElement('strong');title.textContent=`#${item.id} · ${item.channelName} · ${item.name}`;
+      const detail=document.createElement('p');detail.textContent=`${item.category} · ${item.addedBy} · ${item.deletedAt?'削除済み（ごみ箱）':'表示中'}${item.notes?' · '+item.notes:''}`;
+      const remove=document.createElement('button');remove.textContent='完全に削除';remove.onclick=()=>action(remove,async()=>{
+        if(!window.confirm(`「${item.name}」を完全に削除しますか？`))return;
+        await api('/api/admin/copyright/items/'+encodeURIComponent(item.id),{method:'DELETE'});setTimeout(()=>$('contentSearchForm').requestSubmit(),0);
+      });
+      div.append(title,detail,remove);return div;
+    }));
+    if(!items.length){const p=document.createElement('p');p.textContent='該当するコンテンツはありません。';$('contentResults').replaceChildren(p);}
+  });};
+  $('userSearchForm').onsubmit=event=>{event.preventDefault();action($('userSearchButton'),async()=>{
+    const q=$('userSearch').value.trim(),{users}=await api('/api/admin/copyright/users?q='+encodeURIComponent(q));
+    $('userResults').replaceChildren(...users.map(user=>{
+      const div=document.createElement('article');div.className='incident';
+      const title=document.createElement('strong');title.textContent=`${user.username} · ${user.email||'ゲスト'} · ${user.id}`;
+      const detail=document.createElement('p');detail.textContent=user.suspendedAt?`停止中 (${date(user.suspendedAt)}) · ${user.suspensionReason||''}`:'利用中';
+      div.append(title,detail);
+      if(user.hasAvatar){const avatar=document.createElement('button');avatar.textContent='プロフィール画像を削除';avatar.onclick=()=>action(avatar,async()=>{
+        if(!window.confirm(`${user.username} のプロフィール画像を削除しますか？`))return;
+        await api('/api/admin/copyright/users/'+encodeURIComponent(user.id)+'/avatar',{method:'DELETE'});setTimeout(()=>$('userSearchForm').requestSubmit(),0);
+      });div.append(avatar);}
+      const toggle=document.createElement('button');toggle.textContent=user.suspendedAt?'利用停止を解除':'アカウントを停止';toggle.onclick=()=>action(toggle,async()=>{
+        if(user.suspendedAt){if(!window.confirm(`${user.username} の利用停止を解除しますか？`))return;
+          await api('/api/admin/copyright/users/'+encodeURIComponent(user.id)+'/suspension',{method:'DELETE'});
+        }else{
+          const reason=$('moderationReason').value.trim();if(!reason)throw Error('停止理由を入力してください。');
+          if(!window.confirm(`${user.username} のアカウントを停止し、全セッションを終了しますか？`))return;
+          await api('/api/admin/copyright/users/'+encodeURIComponent(user.id)+'/suspend',{method:'POST',body:JSON.stringify({reason})});
+        }
+        setTimeout(()=>$('userSearchForm').requestSubmit(),0);
+      });div.append(toggle);return div;
+    }));
+    if(!users.length){const p=document.createElement('p');p.textContent='該当するアカウントはありません。';$('userResults').replaceChildren(p);}
+  });};
   function connect(){stream?.close();stream=new EventSource('/api/admin/events');stream.addEventListener('snapshot',event=>{try{render(JSON.parse(event.data));}catch{text('message','監視データを読み取れませんでした。');}});stream.addEventListener('expired',()=>lock());stream.onerror=()=>{if(expiresAt&&Date.now()>=expiresAt)lock();else text('message','監視への接続を再試行しています。');};}
   $('loginForm').onsubmit=event=>{event.preventDefault();action($('loginButton'),async()=>{
     const email=$('email').value.trim(),password=$('password').value;

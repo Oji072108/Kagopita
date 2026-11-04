@@ -3,6 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const { DatabaseSync } = require('node:sqlite');
 
+const INVITE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 const dataDirectory = process.env.KAGOPITA_DATA_DIR || path.join(__dirname, 'data');
 fs.mkdirSync(dataDirectory, { recursive: true, mode:0o700 });
 if (process.platform !== 'win32') fs.chmodSync(dataDirectory, 0o700);
@@ -29,6 +30,9 @@ db.exec(`
     password_hash TEXT,
     email_verified INTEGER NOT NULL DEFAULT 0,
     avatar_data TEXT,
+    age_confirmed_at TEXT,
+    suspended_at TEXT,
+    suspension_reason TEXT,
     created_at TEXT NOT NULL
   );
   CREATE TABLE IF NOT EXISTS sessions (
@@ -62,7 +66,8 @@ db.exec(`
     code TEXT PRIMARY KEY COLLATE NOCASE,
     channel_id TEXT REFERENCES channels(id) ON DELETE CASCADE,
     is_bootstrap INTEGER NOT NULL DEFAULT 0,
-    created_at TEXT NOT NULL
+    created_at TEXT NOT NULL,
+    expires_at INTEGER NOT NULL DEFAULT 0
   );
   CREATE UNIQUE INDEX IF NOT EXISTS one_bootstrap_invite
     ON invites(is_bootstrap) WHERE is_bootstrap = 1;
@@ -106,6 +111,17 @@ db.exec(`
   );
 `);
 
+const inviteColumns = new Set(db.prepare('PRAGMA table_info(invites)').all().map(column => column.name));
+if (!inviteColumns.has('expires_at')) {
+  db.exec('ALTER TABLE invites ADD COLUMN expires_at INTEGER NOT NULL DEFAULT 0');
+  const expireLegacyInvite = db.prepare('UPDATE invites SET expires_at = ? WHERE code = ?');
+  for (const invite of db.prepare('SELECT code, is_bootstrap, created_at FROM invites').all()) {
+    if (invite.is_bootstrap) continue;
+    const createdAt = Date.parse(invite.created_at);
+    expireLegacyInvite.run(Number.isFinite(createdAt) ? createdAt + INVITE_TTL_MS : 0, invite.code);
+  }
+}
+
 const itemColumns = new Set(db.prepare('PRAGMA table_info(shopping_items)').all().map(column => column.name));
 for (const [name, definition] of Object.entries({
   notes: "TEXT NOT NULL DEFAULT ''", price: 'INTEGER', deleted_at: 'TEXT',
@@ -134,8 +150,11 @@ if (!userColumns.has('email_verified')) {
   db.exec('ALTER TABLE users ADD COLUMN email_verified INTEGER NOT NULL DEFAULT 0');
 }
 if (!userColumns.has('avatar_data')) db.exec('ALTER TABLE users ADD COLUMN avatar_data TEXT');
-for (const column of ['terms_accepted_version', 'terms_accepted_at', 'terms_seen_version']) {
-  if (!userColumns.has(column)) db.exec(`ALTER TABLE users ADD COLUMN ${column} TEXT`);
+for (const [column, definition] of Object.entries({
+  age_confirmed_at: 'TEXT', suspended_at: 'TEXT', suspension_reason: 'TEXT',
+  terms_accepted_version: 'TEXT', terms_accepted_at: 'TEXT', terms_seen_version: 'TEXT'
+})) {
+  if (!userColumns.has(column)) db.exec(`ALTER TABLE users ADD COLUMN ${column} ${definition}`);
 }
 db.exec(`
   CREATE UNIQUE INDEX IF NOT EXISTS users_email_unique
@@ -232,9 +251,9 @@ function migrateLegacyState(bootstrapCode) {
             if (/^[a-z0-9]{8}$/i.test(invite) &&
                 invite.toLowerCase() !== bootstrapCode.toLowerCase()) {
               db.prepare(`
-                INSERT OR IGNORE INTO invites (code, channel_id, is_bootstrap, created_at)
-                VALUES (?, ?, 0, ?)
-              `).run(invite, channelId, now());
+                INSERT OR IGNORE INTO invites (code, channel_id, is_bootstrap, created_at, expires_at)
+                VALUES (?, ?, 0, ?, ?)
+              `).run(invite, channelId, now(), Date.now() + INVITE_TTL_MS);
             }
           }
 
@@ -332,11 +351,13 @@ function createSession(userId) {
 function getSession(token) {
   if (!token || typeof token !== 'string' || !/^[a-f0-9]{64}$/i.test(token)) return null;
   const row = db.prepare(`
-    SELECT users.id, users.username, users.email, users.email_verified, sessions.expires_at
+    SELECT users.id, users.username, users.email, users.email_verified,
+      users.age_confirmed_at, users.suspended_at, sessions.expires_at
     FROM sessions JOIN users ON users.id = sessions.user_id
     WHERE sessions.token_hash = ?
   `).get(sessionHash(token));
   if (!row) return null;
+  if (row.suspended_at) return null;
   if (row.expires_at <= Date.now()) {
     db.prepare('DELETE FROM sessions WHERE token_hash = ?').run(sessionHash(token));
     return null;
@@ -345,14 +366,21 @@ function getSession(token) {
     id: row.id,
     username: row.username,
     email: row.email,
-    emailVerified: Boolean(row.email_verified)
+    emailVerified: Boolean(row.email_verified),
+    ageConfirmedAt: row.age_confirmed_at
   };
 }
 
 function getInvite(code) {
   if (typeof code !== 'string' || !/^[a-zA-Z0-9]{8}$/.test(code)) return null;
-  return db.prepare('SELECT code, channel_id, is_bootstrap FROM invites WHERE code = ?')
+  const invite = db.prepare('SELECT code, channel_id, is_bootstrap, expires_at FROM invites WHERE code = ?')
     .get(code);
+  if (!invite) return null;
+  if (!invite.is_bootstrap && invite.expires_at <= Date.now()) {
+    db.prepare('DELETE FROM invites WHERE code = ?').run(code);
+    return null;
+  }
+  return invite;
 }
 
 function createChannel(name, userId) {
@@ -381,6 +409,7 @@ module.exports = {
   createSession,
   generateInviteCode,
   getInvite,
+  INVITE_TTL_MS,
   getSession,
   now,
   sessionHash,
