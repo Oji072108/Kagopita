@@ -7,28 +7,25 @@
   const ios = /iPad|iPhone|iPod/i.test(ua) || (/Macintosh|MacIntel/i.test(ua + ' ' + navigator.platform) && navigator.maxTouchPoints > 1);
   const android = !ios && /Android/i.test(ua);
   const display = window.matchMedia('(display-mode: standalone)');
-  let installed = false, deferredPrompt = null, busy = false, returnToMenu = false;
-  const standalone = () => installed || display.matches || navigator.standalone === true;
+  let returnToMenu = false;
+  const standalone = () => display.matches || navigator.standalone === true;
   function update() {
-    container.classList.toggle('hidden', standalone() || !(ios || (android && deferredPrompt)));
-    button.disabled = busy;
+    container.classList.toggle('hidden', standalone() || !(ios || android));
     if (standalone() && dialog.open) dialog.close();
   }
   document.getElementById('pwaInstallLabel').textContent = android ? 'Kagopitaをインストール' : 'インストール方法';
+  if (android) {
+    document.getElementById('pwaInstallLabel').textContent = 'Androidアプリをダウンロード';
+    status.textContent = 'Google Play ストア版は近日公開予定です。';
+  }
   if (ios) button.setAttribute('aria-haspopup', 'dialog');
-  window.addEventListener('beforeinstallprompt', event => {
-    if (!android || standalone()) return;
-    event.preventDefault();
-    deferredPrompt = event;
-    status.textContent = '';
-    update();
-  });
-  window.addEventListener('appinstalled', () => {
-    installed = true; deferredPrompt = null; status.textContent = ''; update();
-  });
   display.addEventListener('change', update);
-  button.addEventListener('click', async () => {
-    if (standalone() || busy) return;
+  button.addEventListener('click', () => {
+    if (standalone()) return;
+    if (android) {
+      window.location.href = 'https://kagopita.com/download/kagopita.apk';
+      return;
+    }
     if (ios) {
       returnToMenu = document.getElementById('navigationDialog').classList.contains('is-open');
       if (returnToMenu) window.closeNavigationMenu();
@@ -36,32 +33,6 @@
       document.getElementById('pwaInstallTitle').focus({ preventScroll: true });
       dialog.querySelector('.share-content').scrollTop = 0;
       return;
-    }
-    if (!android || !deferredPrompt) return;
-    const prompt = deferredPrompt;
-    const restoreMenu = document.getElementById('navigationDialog').classList.contains('is-open');
-    busy = true; update();
-    try {
-      const choice = await window.KagopitaActions.request(async signal => {
-        await prompt.prompt();
-        signal.throwIfAborted();
-        const result = await prompt.userChoice;
-        signal.throwIfAborted();
-        return result;
-      });
-      if (choice.outcome === 'accepted') installed = true;
-    } catch {
-      // A browser can withdraw a one-shot prompt; wait for a new eligible event.
-    } finally {
-      deferredPrompt = null; busy = false; update();
-      if (restoreMenu && !standalone()) {
-        const restore = () => {
-          const menu = document.getElementById('navigationDialog');
-          if (!standalone() && !document.getElementById('nav-menu').classList.contains('hidden') && !menu.classList.contains('is-open')) window.openNavigationMenu();
-        };
-        if (window.KagopitaActions.busy) document.addEventListener('kagopita:idle', restore, { once: true });
-        else restore();
-      }
     }
   });
   document.getElementById('pwaInstallClose').addEventListener('click', () => dialog.close());
