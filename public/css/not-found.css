@@ -1,0 +1,30 @@
+.login-card { margin-top: clamp(48px, 12vh, 120px); }
+.error-actions { display: flex; margin-top: 24px; }
+.error-home {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 48px;
+  padding: 12px 18px;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  background: var(--accent);
+  color: #18301d;
+  font-weight: 800;
+  text-decoration: none;
+}
+.error-home:hover { filter: brightness(1.06); }
+.error-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 18px;
+  margin-top: 24px;
+  padding-top: 18px;
+  border-top: 1px solid var(--border);
+  font-size: 13px;
+}
+.error-links a { color: var(--accent); }
+@media (max-width: 520px) {
+  .login-card { margin-top: 6vh; }
+  .error-home { width: 100%; }
+}
