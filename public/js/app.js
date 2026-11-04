@@ -80,7 +80,6 @@ for (const [locale, labels] of Object.entries({
   feedTranslations[locale].archived = labels[2]; feedTranslations[locale].unarchived = labels[3];
 }
 for (const [language, label] of Object.entries({en: 'changed a member’s role', ko: '멤버 권한을 변경했습니다', zh: '更改了成员权限', es: 'cambió el rol de un miembro'})) feedTranslations[language]['role-changed'] = label;
-for (const [language, label] of Object.entries({ja: '著作権の申立てによりコンテンツを削除しました', en: 'removed content after a copyright report', ko: '저작권 신고에 따라 콘텐츠를 삭제했습니다', zh: '根据版权举报删除了内容', es: 'eliminó contenido tras una denuncia de derechos de autor'})) feedTranslations[language]['copyright-removed'] = label;
 for (const row of window.kagopitaLocaleRows) {
   ['en','ko','zh','es'].forEach((language, index) => { uiTranslations[language][row[0]] = row[index + 1]; });
 }
@@ -159,10 +158,6 @@ async function api(url, options = {}) {
     if (!response.ok) {
       const data = await response.json().catch(() => ({}));
       signal.throwIfAborted();
-      if (data.code === 'AGE_CONFIRMATION_REQUIRED') {
-        const dialog = $('ageConfirmationDialog');
-        if (dialog && !dialog.open) dialog.showModal();
-      }
       if (response.status === 401 && currentUser) {
         resetSignedOutState();
         $('noChannels').classList.remove('hidden');
@@ -186,48 +181,6 @@ async function api(url, options = {}) {
     return data;
   }, { signal: options.signal });
 }
-
-function requireAgeConfirmation(form, message) {
-  const choice = form.querySelector('[name="ageConfirmation"]:checked')?.value;
-  const error = form.querySelector('.age-error');
-  if (choice !== 'yes') {
-    if (error) error.textContent = choice === 'no'
-      ? '13歳未満の方は利用できません。 / This service is not available to children under 13.'
-      : '続行するには、13歳以上であることを確認してください。 / Confirm that you are 13 or older to continue.';
-    message?.focus?.();
-    return false;
-  }
-  if (error) error.textContent = '';
-  return true;
-}
-
-document.querySelectorAll('.age-gate input[name="ageConfirmation"]').forEach(input => {
-  input.addEventListener('change', () => {
-    const error = input.closest('.age-gate')?.querySelector('.age-error');
-    if (error) error.textContent = '';
-  });
-});
-
-$('ageConfirmationForm').addEventListener('submit', async event => {
-  event.preventDefault();
-  const form = event.currentTarget;
-  const message = $('ageConfirmationMessage');
-  if (!requireAgeConfirmation(form, message)) return;
-  const button = form.querySelector('[type="submit"]');
-  button.disabled = true;
-  message.textContent = '';
-  try {
-    await api('/api/age-confirmation', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ageConfirmed: true })
-    });
-    window.location.reload();
-  } catch (error) {
-    message.textContent = error.message;
-  } finally {
-    button.disabled = false;
-  }
-});
 
 async function acceptInviteFromUrl() {
   const invite = new URLSearchParams(window.location.hash.slice(1)).get('invite');
@@ -253,7 +206,6 @@ async function acceptInviteFromUrl() {
     };
     const submit = async event => {
       event.preventDefault();
-      if (!requireAgeConfirmation(form, message)) return;
       if (form.dataset.termsSubmitting === 'true' || !window.KagopitaTerms.requireAcceptance('invite')) return;
       const button = form.querySelector('[type="submit"]');
       form.dataset.termsSubmitting = 'true';
@@ -263,7 +215,7 @@ async function acceptInviteFromUrl() {
         const result = await api('/api/session', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ invite, username: $('joinName').value.trim(), ageConfirmed: true, ...window.KagopitaTerms.acceptance('invite') })
+          body: JSON.stringify({ invite, username: $('joinName').value.trim(), ...window.KagopitaTerms.acceptance('invite') })
         });
         window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}`);
         finish(result.channelId);
@@ -740,7 +692,7 @@ function renderFamilyFeed(feed = []) {
   const period = $('historyPeriod').value;
   const since = new Date(); since.setHours(0,0,0,0);
   if (period && period !== 'today') since.setDate(since.getDate() - Number(period) + 1);
-  const itemActions = ['added','edited','completed','uncompleted','deleted','restored','recurring','copyright-removed'];
+  const itemActions = ['added','edited','completed','uncompleted','deleted','restored','recurring'];
   const matching = feed.filter(entry =>
     (!query || `${entry.name} ${entry.item || ''} ${localItemName(entry.item || '')}`.toLocaleLowerCase().includes(query)) &&
     (!action || (action === 'members' ? !itemActions.includes(entry.action) : entry.action === action)) &&
@@ -1318,7 +1270,6 @@ $('credentialsForm').addEventListener('submit', async event => {
   event.preventDefault();
   const button = event.currentTarget.querySelector('[type="submit"]');
   const message = $('credentialsMessage');
-  if (!requireAgeConfirmation(event.currentTarget, message)) return;
   if (!window.KagopitaTerms.requireAcceptance('credentials')) return;
   $('credentialsForm').dataset.termsSubmitting = 'true';
   button.disabled = true;
@@ -1330,7 +1281,6 @@ $('credentialsForm').addEventListener('submit', async event => {
       body: JSON.stringify({
         email: $('accountEmail').value.trim(),
         password: $('accountPassword').value,
-        ageConfirmed: true,
         ...window.KagopitaTerms.acceptance('credentials')
       })
     });
@@ -1816,7 +1766,6 @@ document.querySelectorAll('.welcomeBackButton').forEach(button => {
 
 $('welcomeAccountForm').addEventListener('submit', async event => {
   event.preventDefault();
-  if (!requireAgeConfirmation(event.currentTarget, $('welcomeAccountMessage'))) return;
   if (!window.KagopitaTerms.requireAcceptance('guest')) return;
   const button = event.currentTarget.querySelector('[type="submit"]');
   $('welcomeAccountForm').dataset.termsSubmitting = 'true';
@@ -1826,7 +1775,7 @@ $('welcomeAccountForm').addEventListener('submit', async event => {
     await api('/api/account', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username: $('welcomeAccountName').value.trim(), ageConfirmed: true, ...window.KagopitaTerms.acceptance('guest') })
+      body: JSON.stringify({ username: $('welcomeAccountName').value.trim(), ...window.KagopitaTerms.acceptance('guest') })
     });
     window.location.reload();
   } catch (error) {
@@ -1841,7 +1790,6 @@ $('welcomeRegisterForm').addEventListener('submit', async event => {
   event.preventDefault();
   const button = event.currentTarget.querySelector('[type="submit"]');
   const message = $('welcomeRegisterMessage');
-  if (!requireAgeConfirmation(event.currentTarget, message)) return;
   if (!window.KagopitaTerms.requireAcceptance('register')) return;
   const requiredFields = [...event.currentTarget.querySelectorAll('input[required]')];
   const emailInput = $('welcomeRegisterEmail');
@@ -1868,7 +1816,6 @@ $('welcomeRegisterForm').addEventListener('submit', async event => {
         username: $('welcomeRegisterName').value.trim(),
         email: $('welcomeRegisterEmail').value.trim(),
         password: $('welcomeRegisterPassword').value,
-        ageConfirmed: true,
         ...window.KagopitaTerms.acceptance('register')
       })
     });
@@ -1993,7 +1940,6 @@ $('welcomeLoginForm').addEventListener('submit', async event => {
 
 $('welcomeJoinForm').addEventListener('submit', async event => {
   event.preventDefault();
-  if (!requireAgeConfirmation(event.currentTarget, $('welcomeJoinMessage'))) return;
   if (!window.KagopitaTerms.requireAcceptance('join')) return;
   const button = event.currentTarget.querySelector('[type="submit"]');
   $('welcomeJoinForm').dataset.termsSubmitting = 'true';
@@ -2006,7 +1952,6 @@ $('welcomeJoinForm').addEventListener('submit', async event => {
       body: JSON.stringify({
         invite: $('welcomeInviteCode').value.trim(),
         username: $('welcomeJoinName').value.trim(),
-        ageConfirmed: true,
         ...window.KagopitaTerms.acceptance('join')
       })
     });

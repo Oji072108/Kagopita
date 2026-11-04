@@ -103,7 +103,6 @@
       <form id="welcomeAccountForm" class="form hidden" novalidate>
         <label for="welcomeAccountName">自分の表示名</label>
         <input id="welcomeAccountName" maxlength="30" required autocomplete="nickname" placeholder="例：自分の名前">
-        <fieldset class="age-gate"><legend>13歳以上ですか？ / Are you 13 or older?</legend><label><input type="radio" name="ageConfirmation" value="yes"> はい / Yes</label><label><input type="radio" name="ageConfirmation" value="no"> いいえ / No</label><p class="age-error" role="alert"></p></fieldset>
         <div class="terms-consent" data-terms-consent="guest">
           <button class="text-button terms-open" type="button">利用規約を読む</button>
           <p class="terms-read-hint">最後まで確認すると、同意を選択できます。</p>
@@ -124,7 +123,6 @@
         <input id="welcomeRegisterEmail" type="email" maxlength="254" required autocomplete="email">
         <label for="welcomeRegisterPassword">パスワード（8文字以上）</label>
         <input id="welcomeRegisterPassword" type="password" minlength="8" maxlength="128" required autocomplete="new-password">
-        <fieldset class="age-gate"><legend>13歳以上ですか？ / Are you 13 or older?</legend><label><input type="radio" name="ageConfirmation" value="yes"> はい / Yes</label><label><input type="radio" name="ageConfirmation" value="no"> いいえ / No</label><p class="age-error" role="alert"></p></fieldset>
         <div class="terms-consent" data-terms-consent="register">
           <button class="text-button terms-open" type="button">利用規約を読む</button>
           <p class="terms-read-hint">最後まで確認すると、同意を選択できます。</p>
@@ -176,7 +174,6 @@
         <input id="welcomeJoinName" maxlength="30" required autocomplete="nickname" placeholder="例：お母さん">
         <label for="welcomeInviteCode">受け取った招待番号（半角英数字8文字）</label>
         <input id="welcomeInviteCode" maxlength="8" minlength="8" required autocomplete="off" placeholder="招待番号を入力">
-        <fieldset class="age-gate"><legend>13歳以上ですか？ / Are you 13 or older?</legend><label><input type="radio" name="ageConfirmation" value="yes"> はい / Yes</label><label><input type="radio" name="ageConfirmation" value="no"> いいえ / No</label><p class="age-error" role="alert"></p></fieldset>
         <div class="terms-consent" data-terms-consent="join">
           <button class="text-button terms-open" type="button">利用規約を読む</button>
           <p class="terms-read-hint">最後まで確認すると、同意を選択できます。</p>
@@ -414,7 +411,6 @@
           <input id="accountEmail" type="email" maxlength="254" required autocomplete="email">
           <label for="accountPassword">パスワード（8文字以上）</label>
           <input id="accountPassword" type="password" minlength="8" maxlength="128" required autocomplete="new-password">
-        <fieldset class="age-gate"><legend>13歳以上ですか？ / Are you 13 or older?</legend><label><input type="radio" name="ageConfirmation" value="yes"> はい / Yes</label><label><input type="radio" name="ageConfirmation" value="no"> いいえ / No</label><p class="age-error" role="alert"></p></fieldset>
         <div class="terms-consent" data-terms-consent="credentials">
           <button class="text-button terms-open" type="button">利用規約を読む</button>
           <p class="terms-read-hint">最後まで確認すると、同意を選択できます。</p>
@@ -534,7 +530,6 @@
       <form id="joinForm" class="form" novalidate>
         <label for="joinName">名前</label>
         <input id="joinName" maxlength="30" required autocomplete="nickname" placeholder="例：お母さん">
-        <fieldset class="age-gate"><legend>13歳以上ですか？ / Are you 13 or older?</legend><label><input type="radio" name="ageConfirmation" value="yes"> はい / Yes</label><label><input type="radio" name="ageConfirmation" value="no"> いいえ / No</label><p class="age-error" role="alert"></p></fieldset>
         <div class="terms-consent" data-terms-consent="invite">
           <button class="text-button terms-open" type="button">利用規約を読む</button>
           <p class="terms-read-hint">最後まで確認すると、同意を選択できます。</p>
@@ -643,16 +638,6 @@
       </div>
     </form>
   </dialog>
-  <dialog id="ageConfirmationDialog" class="share-dialog" aria-labelledby="ageConfirmationTitle">
-    <form id="ageConfirmationForm" class="share-content form" novalidate>
-      <h2 id="ageConfirmationTitle" class="panel-title">年齢の確認 / Age confirmation</h2>
-      <p>このサービスは13歳未満の方を対象としていません。続行するには、13歳以上であることを確認してください。個人情報保護のため、生年月日は尋ねません。<br>This service is not for children under 13. Confirm that you are at least 13 to continue. We do not ask for your date of birth.</p>
-      <fieldset class="age-gate"><legend>13歳以上ですか？ / Are you 13 or older?</legend><label><input type="radio" name="ageConfirmation" value="yes"> はい / Yes</label><label><input type="radio" name="ageConfirmation" value="no"> いいえ / No</label></fieldset>
-      <p id="ageConfirmationMessage" role="alert"></p>
-      <button class="btn btn-primary" type="submit">確認して続行 / Confirm and continue</button>
-    </form>
-  </dialog>
-  <footer class="legal-links"><a href="/privacy">プライバシー / Privacy</a><a href="/copyright">著作権・削除申立て / Copyright & Takedown</a></footer>
   <script src="/js/button-feedback.js?v=20261028-members3"></script>
   <script src="/js/nav-indicator.js?v=20261028-sliding-nav1"></script>
   <script src="/js/dark-mode.js?v=20261028-terms4"></script>
